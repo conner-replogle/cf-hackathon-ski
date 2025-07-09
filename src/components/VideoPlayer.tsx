@@ -243,6 +243,11 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
           onEnded={handleVideoEnd}
           key={currentVideo.turn_id} // Force re-render when video changes
            src={"/api/videos/"+currentVideo.r2_video_link}
+           onTimeUpdate={() => {
+             if (videoRef.current) {
+               setCurrentTime(videoRef.current.currentTime)
+             }
+           }}
         />
         
         <div className="video-info">
