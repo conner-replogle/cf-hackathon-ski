@@ -4,7 +4,7 @@ import { cors } from 'hono/cors';
 // Define the bindings for D1 and R2
 type Bindings = {
   DB: D1Database;
-  R2_VIDEOS: R2Bucket;
+  VIDEOS: R2Bucket;
   R2_PUBLIC_URL: string;
 };
 
@@ -137,18 +137,24 @@ app.get('/api/events/:eventId/runs', async (c) => {
 
 /**
  * Creates a new turn.
- * @body { turn_name: string, event_id: number, athlete_id: number }
+ * @body { turn_name: string, event_id: number, athlete_id: number, run_id: number }
  * @returns { success: boolean, message: string }
  */
 app.post('/api/turns', async (c) => {
   try {
-    const { turn_name, event_id, athlete_id } = await c.req.json();
-    if (!turn_name || !event_id || !athlete_id) {
+    // 1. Destructure run_id from the request body
+    const { turn_name, event_id, athlete_id, run_id } = await c.req.json();
+
+    // 2. Add run_id to the validation check
+    if (!turn_name || !event_id || !athlete_id || !run_id) {
         return c.json({ success: false, message: 'Missing required fields' }, 400);
     }
-    await c.env.DB.prepare('INSERT INTO Turns (turn_name, event_id, athlete_id) VALUES (?, ?, ?)')
-        .bind(turn_name, event_id, athlete_id)
+
+    // 3. Add run_id to the INSERT statement
+    await c.env.DB.prepare('INSERT INTO Turns (turn_name, event_id, athlete_id, run_id) VALUES (?, ?, ?, ?)')
+        .bind(turn_name, event_id, athlete_id, run_id)
         .run();
+
     return c.json({ success: true, message: 'Turn created successfully' });
   } catch (e: any) {
     if (e.message?.includes('UNIQUE constraint failed')) {
@@ -186,40 +192,34 @@ app.get('/api/runs/:runId/turns', async (c) => {
  * @returns { success: boolean, message: string, r2_url: string }
  */
 app.post('/api/turns/:turnId/upload', async (c) => {
-    try {
-        const turnId = c.req.param('turnId');
-        const body = await c.req.parseBody();
-        const videoFile = body['video'] as File;
+      const turnId = c.req.param('turnId');
+      const body = await c.req.parseBody();
+      const videoFile = body['video'] as File;
 
-        if (!videoFile) {
-            return c.json({ success: false, message: 'Video file is required' }, 400);
-        }
+      if (!videoFile) {
+          return c.json({ success: false, message: 'Video file is required' }, 400);
+      }
 
-        // Check if turn exists
-        const turn = await c.env.DB.prepare('SELECT * FROM Turns WHERE turn_id = ?').bind(turnId).first();
-        if (!turn) {
-            return c.json({ success: false, message: 'Turn not found' }, 404);
-        }
+      // Check if turn exists
+      const turn = await c.env.DB.prepare('SELECT * FROM Turns WHERE turn_id = ?').bind(turnId).first();
+      if (!turn) {
+          return c.json({ success: false, message: 'Turn not found' }, 404);
+      }
 
-        const videoKey = `videos/turn_${turnId}_${videoFile.name}`;
+      const videoKey = `videos/turn_${turnId}_${videoFile.name}`;
 
-        // Upload to R2
-        await c.env.R2_VIDEOS.put(videoKey, videoFile.stream(), {
-            httpMetadata: { contentType: videoFile.type },
-        });
-        
-        const r2Url = `${c.env.R2_PUBLIC_URL}/${videoKey}`;
+      // Upload to R2
+      let res = await c.env.VIDEOS.put(videoKey, videoFile.stream(), {
+          httpMetadata: { contentType: videoFile.type },
+      });
 
-        // Update the database
-        await c.env.DB.prepare('UPDATE Turns SET r2_video_link = ? WHERE turn_id = ?')
-            .bind(r2Url, turnId)
-            .run();
+      // Update the database
+      await c.env.DB.prepare('UPDATE Turns SET r2_video_link = ? WHERE turn_id = ?')
+          .bind(res.key, turnId)
+          .run();
 
-        return c.json({ success: true, message: 'Video uploaded successfully', r2_url: r2Url });
+      return c.json({ success: true, message: 'Video uploaded successfully', r2_url: res.key });
 
-    } catch (e: any) {
-        return c.json({ success: false, message: 'An error occurred during upload', error: e.message }, 500);
-    }
 });
 
 
