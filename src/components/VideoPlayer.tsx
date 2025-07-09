@@ -45,7 +45,7 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
             tempVideo.onerror = () => {
               resolve(10) // Default duration on error
             }
-            tempVideo.src = turn.r2_video_link
+            tempVideo.src = "/api/videos/"+turn.r2_video_link
           })
 
           durations.push(duration)
@@ -221,6 +221,7 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
 
   // Handle video end - play next video
   const handleVideoEnd = () => {
+    console.log('Video ended, playing next video')
     if (currentVideoIndex < turns.length - 1) {
       setCurrentVideoIndex(currentVideoIndex + 1)
     } else {
@@ -236,6 +237,7 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
 
   // Handle timeline scrubbing click
   const handleTimelineClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    console.log('Timeline clicked')
     const timeline = event.currentTarget
     const rect = timeline.getBoundingClientRect()
     const clickX = event.clientX - rect.left
@@ -244,7 +246,7 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
     handleTimelineSeek(targetTime)
   }
 
-  // Handle timeline mouse down for dragging
+  // // Handle timeline mouse down for dragging
   const handleTimelineMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
     setIsDragging(true)
     handleTimelineClick(event)
@@ -299,9 +301,9 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
 
   if (turns.length === 0) {
     return (
-      <div className="max-w-6xl mx-auto p-8">
-        <h2 className="text-3xl font-bold text-white mb-8 text-center">Video Player</h2>
-        <p className="text-white text-center text-lg">No videos available</p>
+      <div className="video-player">
+        <h2>Video Player</h2>
+        <p>No videos available</p>
       </div>
     )
   }
@@ -309,128 +311,101 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
   const currentVideo = turns[currentVideoIndex]
 
   return (
-    <div className="max-w-6xl mx-auto p-8">
-      <h2 className="text-3xl font-bold text-white mb-8 text-center">Video Player</h2>
+    <div className="video-player">
+      <h2>Video Player</h2>
       
-      <div className="bg-gray-50 p-6 rounded-lg mb-8 shadow-lg">
+      <div className="video-container">
         <video
           ref={videoRef}
           controls
           autoPlay
           onEnded={handleVideoEnd}
           key={currentVideo.turn_id} // Force re-render when video changes
-          className="w-full max-w-4xl h-auto rounded-lg bg-black mx-auto block"
         >
           <source src={"/api/videos/"+currentVideo.r2_video_link} type="video/mp4" />
           Your browser does not support the video tag.
         </video>
         
-        <div className="my-4 text-center">
-          <h3 className="text-xl font-semibold text-gray-800 mb-2">{currentVideo.turn_name}</h3>
-          <p className="text-gray-600 text-sm">Video {currentVideoIndex + 1} of {turns.length}</p>
-          <div className="font-mono text-lg text-blue-600 font-semibold my-2">
+        <div className="video-info">
+          <h3>{currentVideo.turn_name}</h3>
+          <p>Video {currentVideoIndex + 1} of {turns.length}</p>
+          <div className="time-display">
             <span>{formatTime(currentTime)} / {formatTime(totalDuration)}</span>
           </div>
-          <p className="text-xs text-gray-500 mt-2">
+          <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem' }}>
             Controls: ← → (5s), Shift+← → (0.1s), Space (play/pause), Home/End (start/end), Click/drag timeline
           </p>
         </div>
         
-        <div className="my-4 py-4">
-          <div className="flex justify-between items-center mb-2 text-sm text-gray-600">
-            <span className="font-semibold text-gray-800">Timeline</span>
-            <span className="bg-gray-200 px-2 py-1 rounded font-mono">{formatTime(totalDuration)} total</span>
+        <div className="video-timeline">
+          <div className="timeline-header">
+            <span className="timeline-title">Timeline</span>
+            <span className="timeline-duration">{formatTime(totalDuration)} total</span>
           </div>
           
           {/* Time markers */}
           {totalDuration > 0 && (
-            <div className="relative h-5 mb-2 border-b border-gray-300">
+            <div className="timeline-markers">
               {Array.from({ length: Math.ceil(totalDuration / 10) + 1 }, (_, i) => i * 10).map(time => (
                 <div
                   key={time}
-                  className="absolute top-0 h-full border-l border-gray-400 pointer-events-none"
+                  className="time-marker"
                   style={{ left: `${(time / totalDuration) * 100}%` }}
                 >
-                  <span className="absolute top-0.5 left-0.5 text-xs text-gray-600 font-mono bg-white/90 px-1 border border-gray-300 rounded whitespace-nowrap">
-                    {formatTime(time)}
-                  </span>
+                  <span className="time-label">{formatTime(time)}</span>
                 </div>
               ))}
             </div>
           )}
           
           <div 
-            className={`relative w-full h-24 bg-gray-200 rounded-lg border border-gray-300 overflow-hidden select-none transition-all duration-100 ${isDragging ? 'cursor-grabbing border-blue-500 shadow-lg shadow-blue-500/25' : 'cursor-pointer'} active:border-blue-500 active:shadow-lg active:shadow-blue-500/25`}
+            className="timeline-container"
             onMouseDown={handleTimelineMouseDown}
             onMouseMove={handleTimelineHover}
             onMouseLeave={handleTimelineLeave}
+            style={{ cursor: isDragging ? 'grabbing' : 'pointer' }}
           >
-            <div 
-              className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-blue-700 transition-all duration-100 z-10 shadow-inner shadow-white/30" 
-              style={{ width: `${totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0}%` }}
-            ></div>
+            <div className="timeline-progress" style={{ width: `${totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0}%` }}></div>
             
             {/* Hover time preview */}
             {hoverTime !== null && !isDragging && (
               <div
-                className="absolute top-0 h-full z-20 pointer-events-none transform -translate-x-px"
+                className="timeline-hover-preview"
                 style={{ left: `${(hoverTime / totalDuration) * 100}%` }}
               >
-                <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-black/80 text-white px-2 py-1 rounded text-xs font-mono whitespace-nowrap shadow-lg">
-                  {formatTime(hoverTime)}
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-[3px] border-r-[3px] border-t-[3px] border-transparent border-t-black/80"></div>
-                </div>
+                <div className="hover-time">{formatTime(hoverTime)}</div>
               </div>
             )}
             
             {/* Current time playhead */}
             {totalDuration > 0 && (
               <div
-                className={`absolute top-0 h-full z-30 pointer-events-none transform -translate-x-px transition-transform duration-100 ${isDragging ? 'scale-110' : ''}`}
+                className="timeline-playhead"
                 style={{ left: `${(currentTime / totalDuration) * 100}%` }}
               >
-                <div className={`h-full bg-red-500 shadow-lg shadow-red-500/50 transition-all duration-100 ${isDragging ? 'w-0.5 shadow-red-500/70' : 'w-0.5'}`}></div>
-                <div className={`absolute -top-6 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-2 py-1 rounded text-xs font-mono whitespace-nowrap shadow-lg transition-all duration-100 ${isDragging ? 'bg-red-400 px-3 py-1.5 text-sm font-bold -top-7' : ''}`}>
-                  {formatTime(currentTime)}
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-[3px] border-r-[3px] border-t-[3px] border-transparent border-t-red-500"></div>
-                </div>
+                <div className="playhead-indicator"></div>
+                <div className="playhead-time">{formatTime(currentTime)}</div>
               </div>
             )}
             
-            <div className="relative flex h-full z-20">
+            <div className="timeline-track">
               {videoSegments.map((segment, index) => (
                 <div
                   key={segment.turn.turn_id}
-                  className={`relative flex flex-col items-center justify-center h-full border-r border-gray-300 last:border-r-0 transition-all duration-200 bg-white/10 px-1 py-2 ${
-                    index === currentVideoIndex 
-                      ? 'bg-white/50 shadow-inner shadow-white/70 border-l-2 border-r-2 border-blue-500' 
-                      : 'hover:bg-white/30 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10'
-                  }`}
+                  className={`timeline-segment ${index === currentVideoIndex ? 'active' : ''}`}
                   style={{ 
                     width: `${totalDuration > 0 ? (segment.duration / totalDuration) * 100 : 100 / videoSegments.length}%`,
                     cursor: 'pointer'
                   }}
+                  // onClick={(e) => {
+                  //   e.stopPropagation()
+                  //   handleTimelineSeek(segment.startTime)
+                  // }}
                   title={`${segment.turn.turn_name} (${formatTime(segment.duration)})`}
                 >
-                  <div className={`w-2 h-2 rounded-full mb-1 transition-all duration-200 ${
-                    index === currentVideoIndex 
-                      ? 'bg-white shadow-lg shadow-blue-500' 
-                      : 'bg-gray-800 hover:bg-blue-500 hover:scale-125'
-                  }`}></div>
-                  <div className={`text-xs text-center line-height-tight px-1 max-w-full overflow-hidden text-ellipsis whitespace-nowrap font-medium mb-0.5 transition-all duration-200 ${
-                    index === currentVideoIndex 
-                      ? 'text-white font-semibold' 
-                      : 'text-gray-800 hover:text-blue-500'
-                  }`}>
-                    {segment.turn.turn_name}
-                  </div>
-                  <div className={`text-xs font-mono px-1 py-0.5 rounded border transition-all duration-200 ${
-                    index === currentVideoIndex 
-                      ? 'bg-white/90 text-gray-800 border-white/60' 
-                      : 'bg-white/80 text-gray-600 border-gray-300 hover:bg-white/95 hover:border-blue-500'
-                  }`}>
-                    {formatTime(segment.duration)}
-                  </div>
+                  <div className="timeline-marker"></div>
+                  <div className="timeline-label">{segment.turn.turn_name}</div>
+                  <div className="timeline-duration-label">{formatTime(segment.duration)}</div>
                 </div>
               ))}
             </div>
@@ -438,18 +413,15 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
         </div>
       </div>
 
-      <div className="bg-gray-50 p-6 rounded-lg shadow-lg">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Playlist</h3>
-        <ul className="list-none p-0 m-0">
+      <div className="playlist">
+        <h3>Playlist</h3>
+        <ul>
           {turns.map((turn, index) => (
             <li
               key={turn.turn_id}
-              className={`p-3 my-1 rounded border transition-all duration-200 cursor-pointer ${
-                index === currentVideoIndex 
-                  ? 'bg-blue-500 text-white border-blue-700 font-medium hover:bg-blue-700' 
-                  : 'bg-white border-gray-300 hover:bg-blue-50 hover:border-blue-500'
-              }`}
+              className={index === currentVideoIndex ? 'current' : ''}
               onClick={() => handleVideoSelect(index)}
+              style={{ cursor: 'pointer' }}
             >
               {index + 1}. {turn.turn_name}
               {index === currentVideoIndex && ' (Now Playing)'}
