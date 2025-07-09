@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { VideoPlayer } from '../ components/VideoPlayer';
+import { VideoPlayer } from '../components/VideoPlayer';
 
 interface Video {
   key: string;
