@@ -3,6 +3,7 @@
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
+  color: "black"
 }
 
 .logo {
@@ -116,4 +117,148 @@
   color: #888;
   font-style: italic;
   padding: 2rem;
+}
+
+/* Playlist Styles */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.playlist-button, .exit-playlist-button {
+  background-color: #646cff;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s ease;
+}
+
+.playlist-button:hover:not(:disabled), .exit-playlist-button:hover {
+  background-color: #535bf2;
+}
+
+.playlist-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.exit-playlist-button {
+  background-color: #ff6b6b;
+}
+
+.exit-playlist-button:hover {
+  background-color: #ff5252;
+}
+
+.playlist-section {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  border: 2px solid #646cff;
+  border-radius: 8px;
+  background-color: #f8f9ff;
+}
+
+.playlist-controls {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  justify-content: center;
+}
+
+.playlist-controls button {
+  background-color: #646cff;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s ease;
+}
+
+.playlist-controls button:hover:not(:disabled) {
+  background-color: #535bf2;
+}
+
+.playlist-controls button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.playlist-items {
+  max-width: 600px;
+  margin: 0 auto;
+  color: #333;
+}
+
+.drag-hint {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.playlist-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: grab;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.playlist-item:hover {
+  border-color: #646cff;
+  background-color: #f0f2ff;
+}
+
+.playlist-item.current {
+  border-color: #646cff;
+  background-color: #e8f0ff;
+  font-weight: 600;
+}
+
+.playlist-item:active {
+  cursor: grabbing;
+}
+
+.drag-handle {
+  color: #999;
+  cursor: grab;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.video-number {
+  font-weight: 600;
+  color: #646cff;
+  min-width: 2rem;
+}
+
+.video-name {
+  flex: 1;
+  text-align: left;
+}
+
+.current-indicator {
+  color: #646cff;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* Drag and drop visual feedback */
+.playlist-item[draggable="true"]:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }

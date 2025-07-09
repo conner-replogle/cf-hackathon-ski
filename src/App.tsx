@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import 'filepond/dist/filepond.min.css'
@@ -13,8 +13,13 @@ interface Video {
 
 function App() {
   const [videos, setVideos] = useState<Video[]>([]);
+  const [playlist, setPlaylist] = useState<Video[]>([]);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const [isPlaylistMode, setIsPlaylistMode] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   // Fetch videos from the API
   const fetchVideos = async () => {
@@ -36,6 +41,87 @@ function App() {
   const handleFileUpload = () => {
     // Refresh the video list after upload
     fetchVideos();
+  };
+
+  // Create playlist from all videos
+  const createPlaylist = () => {
+    setPlaylist([...videos]);
+    setCurrentVideoIndex(0);
+    setIsPlaylistMode(true);
+    setSelectedVideo(null);
+  };
+
+  // Handle video ended event
+  const handleVideoEnded = () => {
+    if (isPlaylistMode && playlist.length > 0) {
+      const nextIndex = currentVideoIndex + 1;
+      if (nextIndex < playlist.length) {
+        setCurrentVideoIndex(nextIndex);
+      } else {
+        // Playlist finished, reset to beginning
+        setCurrentVideoIndex(0);
+        if (videoRef.current) {
+          videoRef.current.pause();
+        }
+      }
+    }
+  };
+
+  // Handle drag and drop for reordering playlist
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null) return;
+
+    const newPlaylist = [...playlist];
+    const draggedItem = newPlaylist[draggedIndex];
+    newPlaylist.splice(draggedIndex, 1);
+    newPlaylist.splice(dropIndex, 0, draggedItem);
+
+    setPlaylist(newPlaylist);
+    
+    // Adjust current video index if needed
+    if (draggedIndex === currentVideoIndex) {
+      setCurrentVideoIndex(dropIndex);
+    } else if (draggedIndex < currentVideoIndex && dropIndex >= currentVideoIndex) {
+      setCurrentVideoIndex(currentVideoIndex - 1);
+    } else if (draggedIndex > currentVideoIndex && dropIndex <= currentVideoIndex) {
+      setCurrentVideoIndex(currentVideoIndex + 1);
+    }
+    
+    setDraggedIndex(null);
+  };
+
+  // Navigate playlist
+  const playPrevious = () => {
+    if (currentVideoIndex > 0) {
+      setCurrentVideoIndex(currentVideoIndex - 1);
+    }
+  };
+
+  const playNext = () => {
+    if (currentVideoIndex < playlist.length - 1) {
+      setCurrentVideoIndex(currentVideoIndex + 1);
+    }
+  };
+
+  // Exit playlist mode
+  const exitPlaylistMode = () => {
+    setIsPlaylistMode(false);
+    setPlaylist([]);
+    setCurrentVideoIndex(0);
+    if (videoRef.current) {
+      videoRef.current.pause();
+    }
   };
 
   // Fetch videos on component mount
@@ -79,7 +165,18 @@ function App() {
 
       {/* Video List Section */}
       <div className="video-section">
-        <h2>Video Library</h2>
+        <div className="section-header">
+          <h2>Video Library</h2>
+          {videos.length > 0 && (
+            <button 
+              className="playlist-button"
+              onClick={createPlaylist}
+              disabled={isPlaylistMode}
+            >
+              {isPlaylistMode ? 'Playlist Active' : 'Create Playlist'}
+            </button>
+          )}
+        </div>
         {loading ? (
           <p className="loading">Loading videos...</p>
         ) : videos.length === 0 ? (
@@ -90,28 +187,88 @@ function App() {
               <div
                 key={video.key}
                 className={`video-card ${selectedVideo === video.key ? 'selected' : ''}`}
-                onClick={() => setSelectedVideo(video.key)}
+                onClick={() => !isPlaylistMode && setSelectedVideo(video.key)}
+                style={{ cursor: isPlaylistMode ? 'not-allowed' : 'pointer', opacity: isPlaylistMode ? 0.6 : 1 }}
               >
                 <h3>{video.key}</h3>
                 <p>Size: {formatFileSize(video.size)}</p>
-                <p style={{ marginTop: '0.25rem' }}>Click to play</p>
+                <p style={{ marginTop: '0.25rem' }}>
+                  {isPlaylistMode ? 'Playlist mode active' : 'Click to play'}
+                </p>
               </div>
             ))}
           </div>
         )}
       </div>
 
+      {/* Playlist Section */}
+      {isPlaylistMode && playlist.length > 0 && (
+        <div className="playlist-section">
+          <div className="section-header">
+            <h2>Playlist ({currentVideoIndex + 1} of {playlist.length})</h2>
+            <button className="exit-playlist-button" onClick={exitPlaylistMode}>
+              Exit Playlist
+            </button>
+          </div>
+          
+          <div className="playlist-controls">
+            <button onClick={playPrevious} disabled={currentVideoIndex === 0}>
+              ⏮ Previous
+            </button>
+            <button onClick={playNext} disabled={currentVideoIndex === playlist.length - 1}>
+              ⏭ Next
+            </button>
+          </div>
+
+          <div className="playlist-items">
+            <p className="drag-hint">Drag and drop to reorder videos:</p>
+            {playlist.map((video, index) => (
+              <div
+                key={`${video.key}-${index}`}
+                className={`playlist-item ${index === currentVideoIndex ? 'current' : ''}`}
+                draggable
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, index)}
+              >
+                <span className="drag-handle">⋮⋮</span>
+                <span className="video-number">{index + 1}.</span>
+                <span className="video-name">{video.key}</span>
+                {index === currentVideoIndex && <span className="current-indicator">▶ Playing</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Video Player Section */}
-      {selectedVideo && (
+      {(selectedVideo || (isPlaylistMode && playlist.length > 0)) && (
         <div className="video-player">
-          <h2>Now Playing: {selectedVideo}</h2>
-          <video
-            key={selectedVideo}
-            controls
-            src={`/api/videos/${selectedVideo}`}
-          >
-            Your browser does not support the video tag.
-          </video>
+          {isPlaylistMode ? (
+            <>
+              <h2>Now Playing: {playlist[currentVideoIndex]?.key}</h2>
+              <video
+                ref={videoRef}
+                key={`${playlist[currentVideoIndex]?.key}-${currentVideoIndex}`}
+                controls
+                src={`/api/videos/${playlist[currentVideoIndex]?.key}`}
+                onEnded={handleVideoEnded}
+                autoPlay
+              >
+                Your browser does not support the video tag.
+              </video>
+            </>
+          ) : (
+            <>
+              <h2>Now Playing: {selectedVideo}</h2>
+              <video
+                controls
+                src={`/api/videos/${selectedVideo}`}
+              >
+                Your browser does not support the video tag.
+              </video>
+            </>
+          )}
         </div>
       )}
     </>
