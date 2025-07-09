@@ -1,10 +1,11 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link } from 'react-router-dom';
 import {
   NavigationMenu,
   NavigationMenuList,
   NavigationMenuItem,
   NavigationMenuLink,
 } from '@/components/ui/navigation-menu';
+import Logo from '@/assets/generated-image.png';
 
 
 export default function Layout() {
@@ -34,20 +35,7 @@ export default function Layout() {
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>
-            <NavigationMenuItem>
-              <Link to="/library">
-                <NavigationMenuLink className={location.pathname === '/library' ? 'bg-accent text-accent-foreground' : ''}>
-                  Library
-                </NavigationMenuLink>
-              </Link>
-            </NavigationMenuItem>
-            <NavigationMenuItem>
-              <Link to="/playlist">
-                <NavigationMenuLink className={location.pathname === '/playlist' ? 'bg-accent text-accent-foreground' : ''}>
-                  Playlist
-                </NavigationMenuLink>
-              </Link>
-            </NavigationMenuItem>
+           
           </NavigationMenuList>
         </NavigationMenu>
       </header>
