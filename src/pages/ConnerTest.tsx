@@ -1,11 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { VideoPlayer } from '../ components/VideoPlayer';
+import { VideoPlayer } from '../components/VideoPlayer';
 
-interface Video {
-  key: string;
-  size: number;
-  etag: string;
-}
+
 
 interface Turn {
   turn_id: number;
@@ -21,26 +17,17 @@ export default function ConnerTest() {
   const [error, setError] = useState<string | null>(null);
 
   // Map Video objects to Turn objects for VideoPlayer component
-  const mapVideosToTurns = (videos: Video[]): Turn[] => {
-    return videos.map((video, index) => ({
-      turn_id: index + 1,
-      turn_name: video.key.replace(/\.[^/.]+$/, ""), // Remove file extension
-      event_id: Math.floor(Math.random() * 100) + 1, // Random event ID for demo
-      athlete_id: Math.floor(Math.random() * 50) + 1, // Random athlete ID for demo
-      r2_video_link: `/api/videos/${video.key}` // Video URL endpoint
-    }));
-  };
+ 
 
   // Fetch videos from the API
   const fetchVideos = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/videos');
+      const response = await fetch('/api/runs/2/turns');
       if (response.ok) {
         const videoList = await response.json();
         // Map videos to Turn format for VideoPlayer
-        const mappedTurns = mapVideosToTurns(videoList);
-        setTurns(mappedTurns);
+        setTurns(videoList.turns);
       } else {
         setError('Failed to fetch videos');
       }

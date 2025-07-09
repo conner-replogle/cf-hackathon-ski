@@ -146,8 +146,8 @@ export default function Home() {
             <Link to={`/${selectedEvent}/upload`}>
               <Button>Upload Videos</Button>
             </Link>
-            <Link to={`/${selectedEvent}/library`}>
-              <Button>Browse Library</Button>
+            <Link to={`/${selectedEvent}/watch`}>
+              <Button>Watch Videos</Button>
             </Link>
           </div>
           <Button onClick={() => setSelectedEvent(null)} variant="outline">
