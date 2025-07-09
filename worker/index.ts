@@ -9,9 +9,7 @@ type Bindings = {
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-// // Add CORS middleware to allow all origins
-// app.use('/api/*', cors());
-
+// --- Athlete Endpoints ---
 
 /**
  * Creates a new athlete.
@@ -31,7 +29,6 @@ app.post('/api/athletes', async (c) => {
 
     return c.json({ success: true, message: 'Athlete created successfully' });
   } catch (e: any) {
-    // Check for unique constraint violation
     if (e.message?.includes('UNIQUE constraint failed')) {
       return c.json({ success: false, message: 'Athlete name already exists' }, 409);
     }
@@ -52,6 +49,7 @@ app.get('/api/athletes', async (c) => {
   }
 });
 
+// --- Event Endpoints ---
 
 /**
  * Creates a new event.
@@ -90,6 +88,8 @@ app.get('/api/events', async (c) => {
     return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
   }
 });
+
+// --- Run Endpoints ---
 
 /**
  * Creates a new run.
@@ -133,26 +133,37 @@ app.get('/api/events/:eventId/runs', async (c) => {
     }
 });
 
+// --- Turn Endpoints ---
 
 /**
  * Creates a new turn.
- * @body { turn_name: string, event_id: number, athlete_id: number, run_id: number }
+ * @body { turn_name: string, event_id: number, athlete_id: number, run_id: number, latitude?: number, longitude?: number }
  * @returns { success: boolean, message: string }
  */
 app.post('/api/turns', async (c) => {
   try {
-    // 1. Destructure run_id from the request body
-    const { turn_name, event_id, athlete_id, run_id } = await c.req.json();
+    // 1. Destructure all fields from the body, including optional latitude and longitude
+    const { turn_name, event_id, athlete_id, run_id, latitude, longitude } = await c.req.json();
 
-    // 2. Add run_id to the validation check
+    // 2. Validate required fields
     if (!turn_name || !event_id || !athlete_id || !run_id) {
-        return c.json({ success: false, message: 'Missing required fields' }, 400);
+        return c.json({ success: false, message: 'Missing required fields: turn_name, event_id, athlete_id, run_id' }, 400);
     }
 
-    // 3. Add run_id to the INSERT statement
-    await c.env.DB.prepare('INSERT INTO Turns (turn_name, event_id, athlete_id, run_id) VALUES (?, ?, ?, ?)')
-        .bind(turn_name, event_id, athlete_id, run_id)
-        .run();
+    // 3. Prepare the INSERT statement with latitude and longitude columns
+    const stmt = c.env.DB.prepare(
+        'INSERT INTO Turns (turn_name, event_id, athlete_id, run_id, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?)'
+    );
+
+    // 4. Bind values, using null for latitude/longitude if they are not provided
+    await stmt.bind(
+        turn_name, 
+        event_id, 
+        athlete_id, 
+        run_id, 
+        latitude ?? null, // Use nullish coalescing operator to provide null if undefined
+        longitude ?? null // Use nullish coalescing operator to provide null if undefined
+    ).run();
 
     return c.json({ success: true, message: 'Turn created successfully' });
   } catch (e: any) {
@@ -171,19 +182,16 @@ app.post('/api/turns', async (c) => {
 app.get('/api/runs/:runId/turns', async (c) => {
   try {
       const runId = c.req.param('runId');
-
-      // Directly query the Turns table using the run_id
       const { results } = await c.env.DB.prepare('SELECT * FROM Turns WHERE run_id = ?')
           .bind(runId)
           .all();
-          
       return c.json({ success: true, turns: results });
   } catch (e: any) {
       return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
   }
 });
 
-
+// --- Video Upload Endpoint ---
 
 /**
  * Uploads a video for a specific turn and updates its R2 link.
@@ -200,48 +208,44 @@ app.post('/api/turns/:turnId/upload', async (c) => {
           return c.json({ success: false, message: 'Video file is required' }, 400);
       }
 
-      // Check if turn exists
       const turn = await c.env.DB.prepare('SELECT * FROM Turns WHERE turn_id = ?').bind(turnId).first();
       if (!turn) {
           return c.json({ success: false, message: 'Turn not found' }, 404);
       }
 
-
-      // Upload to R2
       const res = await c.env.VIDEOS.put(videoFile.name, videoFile.stream(), {
           httpMetadata: { contentType: videoFile.type },
       });
 
-      // Update the database
       await c.env.DB.prepare('UPDATE Turns SET r2_video_link = ? WHERE turn_id = ?')
           .bind(res.key, turnId)
           .run();
 
       return c.json({ success: true, message: 'Video uploaded successfully', r2_url: res.key });
-
 });
 
-
+/**
+ * Serves a video file directly from R2.
+ * @param { videoId: string }
+ */
 app.get('/api/videos/:videoId', async (c) => {
   const videoId = c.req.param('videoId');
   try {
-    // Fetch the video from R2
     const video = await c.env.VIDEOS.get(videoId);
-    if (!video) { 
+    if (!video) {
       return c.json({ success: false, message: 'Video not found' }, 404);
     }
-    // Set the appropriate headers
+    
     c.header('Content-Type', video.httpMetadata?.contentType || 'application/octet-stream');
     c.header('Content-Length', String(video.size));
     c.header('Content-Disposition', `inline; filename="${videoId}"`);
-    // Return the video stream
+
     return c.body(video.body, 200);
   } catch (e: any) {
     console.error('Error fetching video:', e);
     return c.json({ success: false, message: 'An error occurred while fetching the video', error: e.message }, 500);
   }
 });
-
 
 export default app;
 export type AppType = typeof app;
