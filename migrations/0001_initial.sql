@@ -20,10 +20,12 @@ CREATE TABLE Run (
 
 CREATE TABLE Turns (
     turn_id INTEGER PRIMARY KEY,
+    run_id INTEGER,
     turn_name TEXT NOT NULL UNIQUE,
     event_id INTEGER,
     athlete_id INTEGER,
     r2_video_link TEXT,
     FOREIGN KEY (event_id) REFERENCES Event(event_id),
-    FOREIGN KEY (athlete_id) REFERENCES Athletes(athlete_id)
+    FOREIGN KEY (athlete_id) REFERENCES Athletes(athlete_id),
+    FOREIGN KEY (run_id) REFERENCES Run(run_id)
 );
