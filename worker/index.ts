@@ -4,9 +4,7 @@ type Bindings = {
   VIDEOS: R2Bucket;
 };
 
-const app = new Hono<{Bindings: Bindings}>()
-
-
+const app = new Hono< CloudflareBindings>()
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const route = app.post('/api/upload', async (c) => {

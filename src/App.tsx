@@ -5,6 +5,7 @@ import Upload from './pages/Upload';
 import Library from './pages/Library';
 import Playlist from './pages/Playlist';
 import './App.css';
+import ConnerTest from './pages/ConnerTest';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
           <Route path="upload" element={<Upload />} />
           <Route path="library" element={<Library />} />
           <Route path="playlist" element={<Playlist />} />
+          <Route path="conner" element={<ConnerTest />} />
         </Route>
       </Routes>
     </Router>
