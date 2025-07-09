@@ -79,39 +79,7 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
     }
   }, [turns])
 
-  // Update current time based on video playback
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
 
-    const updateTime = () => {
-      // Don't update if we're currently seeking to avoid conflicts
-      if (isSeeking) return
-      
-      const videoCurrentTime = video.currentTime
-      const segment = videoSegments[currentVideoIndex]
-      if (segment) {
-        setCurrentTime(segment.startTime + videoCurrentTime)
-      }
-    }
-
-    const handleSeeked = () => {
-      // When video finishes seeking, update the time and clear the seeking flag
-      const videoCurrentTime = video.currentTime
-      const segment = videoSegments[currentVideoIndex]
-      if (segment) {
-        setCurrentTime(segment.startTime + videoCurrentTime)
-      }
-      setIsSeeking(false)
-    }
-
-    video.addEventListener('timeupdate', updateTime)
-    video.addEventListener('seeked', handleSeeked)
-    return () => {
-      video.removeEventListener('timeupdate', updateTime)
-      video.removeEventListener('seeked', handleSeeked)
-    }
-  }, [currentVideoIndex, videoSegments, isSeeking])
 
   // Handle timeline scrubbing to specific time
   const handleTimelineSeek = useCallback((targetTime: number) => {
@@ -147,6 +115,8 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
           const currentVideoTime = videoRef.current.currentTime
           if (Math.abs(currentVideoTime - relativeTime) > 0.1) {
             videoRef.current.currentTime = relativeTime
+            
+            console.log(`Seeking to ${relativeTime} in video segment ${segment.turn.turn_name}`)
             // The 'seeked' event will clear the seeking flag
           } else {
             // If we're not actually seeking, clear the flag immediately
@@ -170,54 +140,6 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
   }
 
-  // Add keyboard navigation for timeline scrubbing
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      switch (event.key) {
-        case 'ArrowLeft':
-          event.preventDefault()
-          if (event.shiftKey) {
-            // Frame-by-frame: Skip back 0.1 seconds with Shift+Left
-            handleTimelineSeek(Math.max(0, currentTime - 0.1))
-          } else {
-            // Skip back 5 seconds
-            handleTimelineSeek(Math.max(0, currentTime - 5))
-          }
-          break
-        case 'ArrowRight':
-          event.preventDefault()
-          if (event.shiftKey) {
-            // Frame-by-frame: Skip forward 0.1 seconds with Shift+Right
-            handleTimelineSeek(Math.min(totalDuration, currentTime + 0.1))
-          } else {
-            // Skip forward 5 seconds
-            handleTimelineSeek(Math.min(totalDuration, currentTime + 5))
-          }
-          break
-        case ' ': // Spacebar
-          event.preventDefault()
-          if (videoRef.current) {
-            if (videoRef.current.paused) {
-              videoRef.current.play()
-            } else {
-              videoRef.current.pause()
-            }
-          }
-          break
-        case 'Home':
-          event.preventDefault()
-          handleTimelineSeek(0)
-          break
-        case 'End':
-          event.preventDefault()
-          handleTimelineSeek(totalDuration)
-          break
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [currentTime, totalDuration, handleTimelineSeek])
 
   // Handle video end - play next video
   const handleVideoEnd = () => {
@@ -246,7 +168,7 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
     handleTimelineSeek(targetTime)
   }
 
-  // // Handle timeline mouse down for dragging
+  // Handle timeline mouse down for dragging
   const handleTimelineMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
     setIsDragging(true)
     handleTimelineClick(event)
@@ -317,14 +239,12 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
       <div className="video-container">
         <video
           ref={videoRef}
-          controls
           autoPlay
           onEnded={handleVideoEnd}
           key={currentVideo.turn_id} // Force re-render when video changes
-        >
-          <source src={"/api/videos/"+currentVideo.r2_video_link} type="video/mp4" />
-          Your browser does not support the video tag.
-        </video>
+           src={"/api/videos/"+currentVideo.r2_video_link}
+
+        />
         
         <div className="video-info">
           <h3>{currentVideo.turn_name}</h3>
