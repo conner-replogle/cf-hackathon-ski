@@ -321,7 +321,7 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
           key={currentVideo.turn_id} // Force re-render when video changes
           className="w-full max-w-4xl h-auto rounded-lg bg-black mx-auto block"
         >
-          <source src={currentVideo.r2_video_link} type="video/mp4" />
+          <source src={"/api/videos/"+currentVideo.r2_video_link} type="video/mp4" />
           Your browser does not support the video tag.
         </video>
         
