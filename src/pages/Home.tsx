@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import Logo from '@/assets/generated-image.png';
 
 // Hardcoded event data based on the provided schema
 const initialEvents = [
@@ -43,27 +43,10 @@ export default function Home() {
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">Select or create an event to get started.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12 text-left">
-        <Card>
-          <CardHeader>
-            <CardTitle>📁 Upload Videos</CardTitle>
-            <CardDescription>Drag and drop video files or browse to upload them to your library.</CardDescription>
-          </CardHeader>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle>📚 Video Library</CardTitle>
-            <CardDescription>Browse and play individual videos from your collection.</CardDescription>
-          </CardHeader>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle>🎵 Playlist Mode</CardTitle>
-            <CardDescription>Create playlists and enjoy continuous video playback with reordering support.</CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="flex justify-center *:">
+       <Link to="/">
+           <img src={Logo} className="h-60" alt="US Ski Team logo" />
+          </Link>
       </div>
 
       {!selectedEvent ? (
@@ -116,12 +99,12 @@ export default function Home() {
           <div className="flex space-x-4">
             <Link to={`/${selectedEvent}/upload`}>
               <Button>
-                Upload Videos
+                Upload
               </Button>
             </Link>
-            <Link to={`/${selectedEvent}/library`}>
+            <Link to={`/${selectedEvent}/watch`}>
               <Button>
-                Browse Library
+                Watch
               </Button>
             </Link>
           </div>
