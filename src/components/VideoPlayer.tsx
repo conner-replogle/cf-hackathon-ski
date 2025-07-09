@@ -87,9 +87,14 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
     setIsSeeking(true)
     
     // Find which video segment contains this time
-    const segmentIndex = videoSegments.findIndex(
-      segment => targetTime >= segment.startTime && targetTime <= segment.endTime
+    let segmentIndex = videoSegments.findIndex(
+      segment => targetTime >= segment.startTime && targetTime < segment.endTime
     )
+
+    // Handle case where user clicks exactly at the end of the timeline
+    if (segmentIndex === -1 && targetTime === totalDuration && totalDuration > 0) {
+      segmentIndex = videoSegments.length - 1
+    }
 
     if (segmentIndex !== -1) {
       const segment = videoSegments[segmentIndex]
@@ -98,32 +103,29 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
       // Update current time immediately for smooth feedback
       setCurrentTime(targetTime)
       
+      const seekAndPlay = (videoElement: HTMLVideoElement) => {
+        // Clamp currentTime to video duration to avoid errors
+        videoElement.currentTime = Math.min(relativeTime, videoElement.duration)
+        videoElement.play()
+        // isSeeking will be set to false on the 'onSeeked' event
+      }
+
       // Switch to the correct video if needed
       if (segmentIndex !== currentVideoIndex) {
         setCurrentVideoIndex(segmentIndex)
         // Wait for video to load before seeking
         setTimeout(() => {
           if (videoRef.current) {
-            videoRef.current.currentTime = relativeTime
-            // The 'seeked' event will clear the seeking flag
+            seekAndPlay(videoRef.current)
+          } else {
+            setIsSeeking(false)
           }
-        }, 50)
+        }, 100) // A small delay to allow the new video to load
       } else {
         // Same video, just seek immediately
         if (videoRef.current) {
-          // Only seek if we're actually changing position
-          const currentVideoTime = videoRef.current.currentTime
-          if (Math.abs(currentVideoTime - relativeTime) > 0.1) {
-            videoRef.current.currentTime = relativeTime
-            
-            console.log(`Seeking to ${relativeTime} in video segment ${segment.turn.turn_name}`)
-            // The 'seeked' event will clear the seeking flag
-          } else {
-            // If we're not actually seeking, clear the flag immediately
-            setIsSeeking(false)
-          }
+          seekAndPlay(videoRef.current)
         } else {
-          // No video element, clear the flag
           setIsSeeking(false)
         }
       }
@@ -131,7 +133,7 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
       // Clear seeking flag if no valid segment found
       setIsSeeking(false)
     }
-  }, [videoSegments, currentVideoIndex])
+  }, [videoSegments, currentVideoIndex, totalDuration])
 
   // Convert time to formatted string
   const formatTime = (seconds: number) => {
@@ -154,72 +156,26 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
 
   // Handle manual video selection
   const handleVideoSelect = (index: number) => {
-    setCurrentVideoIndex(index)
+    if (videoSegments[index]) {
+      handleTimelineSeek(videoSegments[index].startTime);
+    }
   }
 
   // Handle timeline scrubbing click
   const handleTimelineClick = (event: React.MouseEvent<HTMLDivElement>) => {
     console.log('Timeline clicked')
-    // const timeline = event.currentTarget
-    // const rect = timeline.getBoundingClientRect()
-    // const clickX = event.clientX - rect.left
-    // const percentage = clickX / rect.width
-    // const targetTime = percentage * totalDuration
-    // handleTimelineSeek(targetTime)
-  }
-
-  // Handle timeline mouse down for dragging
-  const handleTimelineMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
-    setIsDragging(true)
-    handleTimelineClick(event)
-  }
-
-  // Handle timeline mouse move for dragging
-  const handleTimelineMouseMove = useCallback((event: MouseEvent) => {
-    if (!isDragging) return
-    
-    const timeline = document.querySelector('.timeline-container') as HTMLElement
-    if (!timeline) return
-    
-    const rect = timeline.getBoundingClientRect()
-    const moveX = event.clientX - rect.left
-    const percentage = Math.max(0, Math.min(1, moveX / rect.width))
-    const targetTime = percentage * totalDuration
-    handleTimelineSeek(targetTime)
-  }, [isDragging, totalDuration, handleTimelineSeek])
-
-  // Handle timeline hover for time preview
-  const handleTimelineHover = (event: React.MouseEvent<HTMLDivElement>) => {
     const timeline = event.currentTarget
     const rect = timeline.getBoundingClientRect()
-    const hoverX = event.clientX - rect.left
-    const percentage = hoverX / rect.width
-    const timeAtHover = percentage * totalDuration
-    setHoverTime(timeAtHover)
+    const clickX = event.clientX - rect.left
+    const percentage = clickX / rect.width
+    const targetTime = percentage * totalDuration
+    handleTimelineSeek(targetTime)
   }
 
-  // Handle timeline leave to hide hover
-  const handleTimelineLeave = () => {
-    setHoverTime(null)
-  }
 
-  // Handle mouse up to stop dragging
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false)
-  }, [])
 
   // Add global mouse events for dragging
-  useEffect(() => {
-    if (isDragging) {
-      document.addEventListener('mousemove', handleTimelineMouseMove)
-      document.addEventListener('mouseup', handleMouseUp)
-      
-      return () => {
-        document.removeEventListener('mousemove', handleTimelineMouseMove)
-        document.removeEventListener('mouseup', handleMouseUp)
-      }
-    }
-  }, [isDragging, handleTimelineMouseMove, handleMouseUp])
+
 
   if (turns.length === 0) {
     return (
@@ -241,11 +197,15 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
           ref={videoRef}
           autoPlay
           onEnded={handleVideoEnd}
+          onSeeked={() => setIsSeeking(false)}
           key={currentVideo.turn_id} // Force re-render when video changes
            src={"/api/videos/"+currentVideo.r2_video_link}
            onTimeUpdate={() => {
-             if (videoRef.current) {
-               setCurrentTime(videoRef.current.currentTime)
+             if (videoRef.current && !isSeeking) {
+               const segment = videoSegments[currentVideoIndex];
+               if (segment) {
+                 setCurrentTime(segment.startTime + videoRef.current.currentTime);
+               }
              }
            }}
         />
@@ -284,9 +244,10 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
           
           <div 
             className="timeline-container"
-            onMouseDown={handleTimelineMouseDown}
-            onMouseMove={handleTimelineHover}
-            onMouseLeave={handleTimelineLeave}
+            // onMouseDown={handleTimelineMouseDown}
+            // onMouseMove={handleTimelineHover}
+            // onMouseLeave={handleTimelineLeave}
+            onClick={handleTimelineClick}
             style={{ cursor: isDragging ? 'grabbing' : 'pointer' }}
           >
             <div className="timeline-progress" style={{ width: `${totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0}%` }}></div>
@@ -312,19 +273,21 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
               </div>
             )}
             
-            <div className="timeline-track">
+            <div className="timeline-track" style={{ position: 'relative', height: '60px' }}>
               {videoSegments.map((segment, index) => (
                 <div
                   key={segment.turn.turn_id}
                   className={`timeline-segment ${index === currentVideoIndex ? 'active' : ''}`}
                   style={{ 
+                    position: 'absolute',
+                    left: `${totalDuration > 0 ? (segment.startTime / totalDuration) * 100 : 0}%`,
                     width: `${totalDuration > 0 ? (segment.duration / totalDuration) * 100 : 100 / videoSegments.length}%`,
                     cursor: 'pointer'
                   }}
-                  // onClick={(e) => {
-                  //   e.stopPropagation()
-                  //   handleTimelineSeek(segment.startTime)
-                  // }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleTimelineSeek(segment.startTime)
+                  }}
                   title={`${segment.turn.turn_name} (${formatTime(segment.duration)})`}
                 >
                   <div className="timeline-marker"></div>
