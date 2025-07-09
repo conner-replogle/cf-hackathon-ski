@@ -331,7 +331,7 @@ export default function Upload() {
   };
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto py-8 max-w-2xl">
       <h2 className="text-2xl font-bold mb-2 text-white">
         Upload Videos for Event: {currentEventId}
       </h2>

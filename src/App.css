@@ -649,14 +649,6 @@
   border: 1px solid #f5c6cb;
 }
 
-.upload-section {
-  margin: 2rem 0;
-  padding: 1.5rem;
-  border: 2px dashed #444;
-  border-radius: 8px;
-  background-color: #2a2a2a;
-}
-
 .loading {
   text-align: center;
   color: white;
@@ -901,64 +893,6 @@
 }
 
 /* Upload Page Styles */
-.upload-page {
-  margin: 0 auto;
-}
-
-.upload-page h2 {
-  margin-bottom: 0.5rem;
-  color: white;
-}
-
-.upload-page > p {
-  margin-bottom: 2rem;
-  color: white;
-}
-
-.upload-status {
-  margin-top: 1rem;
-  padding: 0.75rem 1rem;
-  border-radius: 4px;
-  font-weight: 500;
-  text-align: center;
-}
-
-.upload-status.success {
-  background-color: #1a472a;
-  color: #a3e6b3;
-  border: 1px solid #2c6b3c;
-}
-
-.upload-status.error {
-  background-color: #4a1a1a;
-  color: #e6a3a3;
-  border: 1px solid #6b2c2c;
-}
-
-.upload-info {
-  margin-top: 2rem;
-  padding: 1.5rem;
-  background-color: #2a2a2a;
-  border-radius: 8px;
-  text-align: left;
-}
-
-.upload-info h3 {
-  margin-bottom: 0.75rem;
-  color: white;
-  font-size: 1.1rem;
-}
-
-.upload-info ul {
-  margin: 0 0 1.5rem 0;
-  padding-left: 1.5rem;
-}
-
-.upload-info li {
-  margin-bottom: 0.25rem;
-  color: white;
-}
-
 /* Library Page Styles */
 .library-page {
   margin: 0 auto;
