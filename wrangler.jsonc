@@ -10,5 +10,12 @@
       "binding": "VIDEOS",
       "bucket_name": "videos-storage"
     }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ski-db",
+      "database_id": "ski-db"
+    }
   ]
 }
