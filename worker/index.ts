@@ -1,5 +1,4 @@
 import { Hono } from 'hono';
-import { cors } from 'hono/cors';
 
 // Define the bindings for D1 and R2
 type Bindings = {
