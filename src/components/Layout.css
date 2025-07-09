@@ -6,13 +6,13 @@
 
 .app-header {
   background: #1a1a1a;
-  padding: 1rem 2rem;
   border-bottom: 1px solid #333;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 1rem;
+  padding: 1rem;
 }
 
 .logo-section {
@@ -30,9 +30,7 @@
   filter: drop-shadow(0 0 2em #646cffaa);
 }
 
-.logo-section .logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
+
 
 .app-header h1 {
   margin: 0;
@@ -67,11 +65,9 @@
 
 .app-main {
   flex: 1;
-  padding: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
+  padding: 1rem;
 }
 
 @media (max-width: 768px) {
