@@ -160,32 +160,22 @@ app.post('/api/turns', async (c) => {
 
 /**
  * Lists all turns for a given run.
- * NOTE: Since turns are not directly linked to runs in the schema, this endpoint is not feasible as is.
- * This example lists turns by event and athlete, which can be retrieved from a run.
  * @param { runId: number }
  * @returns { success: boolean, turns: Array<any> }
  */
 app.get('/api/runs/:runId/turns', async (c) => {
-    try {
-        const runId = c.req.param('runId');
-        // First, get the event_id and athlete_id from the run
-        const run: { event_id: number, athlete_id: number } | null = await c.env.DB.prepare('SELECT event_id, athlete_id FROM Run WHERE run_id = ?')
-            .bind(runId)
-            .first();
+  try {
+      const runId = c.req.param('runId');
 
-        if (!run) {
-            return c.json({ success: false, message: 'Run not found' }, 404);
-        }
-
-        // Then, fetch all turns matching the event_id and athlete_id
-        const { results } = await c.env.DB.prepare('SELECT * FROM Turns WHERE event_id = ? AND athlete_id = ?')
-            .bind(run.event_id, run.athlete_id)
-            .all();
-            
-        return c.json({ success: true, turns: results });
-    } catch (e: any) {
-        return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-    }
+      // Directly query the Turns table using the run_id
+      const { results } = await c.env.DB.prepare('SELECT * FROM Turns WHERE run_id = ?')
+          .bind(runId)
+          .all();
+          
+      return c.json({ success: true, turns: results });
+  } catch (e: any) {
+      return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
+  }
 });
 
 
