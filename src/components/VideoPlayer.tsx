@@ -160,12 +160,12 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
   // Handle timeline scrubbing click
   const handleTimelineClick = (event: React.MouseEvent<HTMLDivElement>) => {
     console.log('Timeline clicked')
-    const timeline = event.currentTarget
-    const rect = timeline.getBoundingClientRect()
-    const clickX = event.clientX - rect.left
-    const percentage = clickX / rect.width
-    const targetTime = percentage * totalDuration
-    handleTimelineSeek(targetTime)
+    // const timeline = event.currentTarget
+    // const rect = timeline.getBoundingClientRect()
+    // const clickX = event.clientX - rect.left
+    // const percentage = clickX / rect.width
+    // const targetTime = percentage * totalDuration
+    // handleTimelineSeek(targetTime)
   }
 
   // Handle timeline mouse down for dragging
@@ -243,7 +243,6 @@ export const VideoPlayer = ({turns}: {turns: Turn[]}) => {
           onEnded={handleVideoEnd}
           key={currentVideo.turn_id} // Force re-render when video changes
            src={"/api/videos/"+currentVideo.r2_video_link}
-
         />
         
         <div className="video-info">
