@@ -19,6 +19,13 @@ import {
 import { cn } from "../lib/utils";
 import { Button } from "@/components/ui/button";
 
+// Import Leaflet and its CSS
+import L, { Map } from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+// Import GeoJSON types for type safety
+import { FeatureCollection } from "geojson";
+
 interface Athlete {
   athlete_id: number;
   athlete_name: string;
@@ -38,6 +45,167 @@ interface Turn {
   athlete_id: number;
   run_id: number;
 }
+
+// --- Data ---
+export const geojsonFeature: FeatureCollection = {
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      properties: {
+        name: "Turn 1",
+      },
+      geometry: {
+        type: "Point",
+        coordinates: [-106.39248, 39.62495],
+      },
+    },
+    {
+      type: "Feature",
+      properties: {
+        name: "Turn 2",
+      },
+      geometry: {
+        type: "Point",
+        coordinates: [-106.39139, 39.63012],
+      },
+    },
+    {
+      type: "Feature",
+      properties: {
+        name: "Turn 3 (Hairpin)",
+      },
+      geometry: {
+        type: "Point",
+        coordinates: [-106.39493, 39.63287],
+      },
+    },
+    {
+      type: "Feature",
+      properties: {
+        name: "Turn 4",
+      },
+      geometry: {
+        type: "Point",
+        coordinates: [-106.38918, 39.63663],
+      },
+    },
+  ],
+};
+
+interface LeafletMapProps {
+  turns: Turn[];
+  onSelectTurn: (turnId: number) => void;
+  selectedTurn: number | null;
+}
+
+const LeafletMap: React.FC<LeafletMapProps> = ({
+  turns,
+  onSelectTurn,
+  selectedTurn,
+}) => {
+  const mapRef = useRef<Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Define custom icons
+  const defaultIcon = L.icon({
+    iconUrl:
+      "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+    iconRetinaUrl:
+      "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
+    shadowUrl:
+      "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41],
+  });
+
+  const selectedIcon = L.icon({
+    iconUrl:
+      "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+    iconRetinaUrl:
+      "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
+    shadowUrl:
+      "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41],
+  });
+
+  useEffect(() => {
+    if (mapContainerRef.current && !mapRef.current) {
+      const map = L.map(mapContainerRef.current);
+      mapRef.current = map;
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map);
+    }
+
+    if (mapRef.current) {
+      const map = mapRef.current;
+      // Clear existing markers
+      map.eachLayer((layer: any) => {
+        if (layer instanceof L.Marker) {
+          map.removeLayer(layer);
+        }
+      });
+
+      const markers: L.Marker[] = [];
+      turns.slice(0, 4).forEach((turn, index) => {
+        const feature = geojsonFeature.features[index];
+        if (feature && feature.geometry.type === "Point") {
+          const coordinates = (feature.geometry as any).coordinates;
+          const marker = L.marker([coordinates[1], coordinates[0]], {
+            icon: turn.turn_id === selectedTurn ? selectedIcon : defaultIcon,
+          }).addTo(map);
+          markers.push(marker);
+
+          const popupContent = `
+            <div>
+              <h3>${turn.turn_name}</h3>
+              <button id="select-turn-${turn.turn_id}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-sm mt-2">
+                Select Turn
+              </button>
+            </div>
+          `;
+          marker.bindPopup(popupContent);
+
+          marker.on("popupopen", () => {
+            document
+              .getElementById(`select-turn-${turn.turn_id}`)
+              ?.addEventListener("click", () => {
+                onSelectTurn(turn.turn_id);
+                marker.closePopup();
+              });
+          });
+        }
+      });
+
+      if (markers.length > 0) {
+        const group = new L.featureGroup(markers);
+        map.fitBounds(group.getBounds());
+      }
+    }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [turns, onSelectTurn, selectedTurn]);
+
+  return (
+    <div
+      ref={mapContainerRef}
+      style={{ height: "500px", width: "100%", borderRadius: "0.5rem" }}
+    />
+  );
+};
 
 export default function Upload() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -59,6 +227,7 @@ export default function Upload() {
 
   const [turns, setTurns] = useState<Turn[]>([]);
   const [selectedTurn, setSelectedTurn] = useState<number | null>(null);
+  const [selectedTurnName, setSelectedTurnName] = useState<string | null>(null);
   const [files, setFiles] = useState<any[]>([]);
 
   const filteredRuns = selectedAthlete
@@ -87,6 +256,7 @@ export default function Upload() {
     // Reset run and turn selection when athlete or event changes
     setSelectedRun(null);
     setSelectedTurn(null);
+    setSelectedTurnName(null);
     setNewRunName("");
 
     const fetchRuns = async () => {
@@ -109,8 +279,10 @@ export default function Upload() {
 
   useEffect(() => {
     setSelectedTurn(null);
+    setSelectedTurnName(null);
     const fetchTurns = async () => {
-      if (selectedRun) {
+      if (selectedRun && turns.length === 0) {
+        // Only fetch if turns are not already populated
         try {
           const response = await fetch(`/api/runs/${selectedRun}/turns`);
           const data = await response.json();
@@ -123,7 +295,18 @@ export default function Upload() {
       }
     };
     fetchTurns();
-  }, [selectedRun]);
+  }, [selectedRun, turns.length]);
+
+  useEffect(() => {
+    if (selectedTurn) {
+      const turn = turns.find((t) => t.turn_id === selectedTurn);
+      if (turn) {
+        setSelectedTurnName(turn.turn_name);
+      }
+    } else {
+      setSelectedTurnName(null);
+    }
+  }, [selectedTurn, turns]);
 
   const handleCreateAthlete = async (): Promise<number | null> => {
     if (newAthleteName.trim() !== "") {
@@ -236,7 +419,7 @@ export default function Upload() {
     }
     setUploadStatus("All videos processed. Redirecting...");
     setTimeout(() => {
-      navigate(`/${currentEventId}/library`);
+      navigate(`/${currentEventId}/watch`);
     }, 1500);
   };
 
@@ -274,50 +457,12 @@ export default function Upload() {
       }
     }
 
-    // 3. Create Turn if selectedTurn is not set
-    if (!selectedTurn) {
-      if (!currentRunId || !currentAthleteId || !currentEventId) {
-        setUploadStatus("Missing information to create a turn.");
-        setTimeout(() => setUploadStatus(""), 3000);
-        return;
-      }
-      const turnName = `Turn ${turns.length + 1}`;
-      try {
-        const createTurnResponse = await fetch("/api/turns", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            turn_name: turnName,
-            event_id: currentEventId,
-            athlete_id: currentAthleteId,
-            run_id: currentRunId,
-          }),
-        });
-        const createTurnData = await createTurnResponse.json();
-        if (createTurnData.success) {
-          currentTurnId = createTurnData.turn_id;
-          setSelectedTurn(currentTurnId);
-          // Re-fetch turns to update the list
-          const updatedTurnsResponse = await fetch(
-            `/api/runs/${currentRunId}/turns`,
-          );
-          const updatedTurnsData = await updatedTurnsResponse.json();
-          if (updatedTurnsData.success) {
-            setTurns(updatedTurnsData.turns);
-          }
-        } else {
-          setUploadStatus(`Failed to create turn: ${createTurnData.message}`);
-          setTimeout(() => setUploadStatus(""), 3000);
-          return;
-        }
-      } catch (error) {
-        console.error("Error creating turn:", error);
-        setUploadStatus("An error occurred while creating the turn.");
-        setTimeout(() => setUploadStatus(""), 3000);
-        return;
-      }
+    // 3. If a new run was created, turns are already set by handleCreateRun.
+    // If an existing run was selected, turns should have been fetched by the useEffect.
+    // Ensure currentTurnId is set if turns exist and no specific turn is selected yet.
+    if (!selectedTurn && turns.length > 0) {
+      currentTurnId = turns[0].turn_id; // Automatically select the first turn
+      setSelectedTurn(currentTurnId);
     }
 
     // If all metadata is set, inform the user that they can now upload their video.
@@ -475,22 +620,16 @@ export default function Upload() {
               <CardTitle className="text-white">Turn</CardTitle>
             </CardHeader>
             <CardContent>
-              <Select
-                onValueChange={(value) => setSelectedTurn(parseInt(value, 10))}
-                value={selectedTurn ? String(selectedTurn) : ""}
-                disabled={!(selectedRun || newRunName)}
-              >
-                <SelectTrigger className="w-full md:w-[280px]">
-                  <SelectValue placeholder="Select a Turn" />
-                </SelectTrigger>
-                <SelectContent>
-                  {turns.map((turn) => (
-                    <SelectItem key={turn.turn_id} value={String(turn.turn_id)}>
-                      {turn.turn_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <LeafletMap
+                turns={turns}
+                onSelectTurn={setSelectedTurn}
+                selectedTurn={selectedTurn}
+              />
+              {selectedTurnName && (
+                <p className="mt-4 text-white text-center">
+                  Selected Turn: {selectedTurnName}
+                </p>
+              )}
             </CardContent>
           </Card>
         )}
