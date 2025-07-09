@@ -1,0 +1,14 @@
+{
+  "name": "cf-hackathon-ski",
+  "compatibility_date": "2025-04-03",
+  "assets": {
+    "not_found_handling": "single-page-application"
+  },
+  "main": "./worker/index.ts",
+  "r2_buckets": [
+    {
+      "binding": "VIDEOS",
+      "bucket_name": "videos-storage"
+    }
+  ]
+}
