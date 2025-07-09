@@ -41,6 +41,15 @@ const route = app.post('/api/upload', async (c) => {
     'Cache-Control': video.httpMetadata?.cacheControl ?? 'no-cache',
   })
 })
+.get('/api/videos', async (c) => {
+  const list = await c.env.VIDEOS.list()
+  const videos = list.objects.map((obj) => ({
+    key: obj.key,
+    size: obj.size,
+    etag: obj.etag,
+  }))
+  return c.json(videos, 200)
+})
 
 
 

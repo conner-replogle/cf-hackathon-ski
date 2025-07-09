@@ -40,3 +40,80 @@
 .read-the-docs {
   color: #888;
 }
+
+.video-section {
+  margin: 2rem 0;
+  text-align: left;
+}
+
+.video-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  margin-top: 1rem;
+}
+
+.video-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+  background-color: white;
+  transition: all 0.2s ease;
+}
+
+.video-card:hover {
+  border-color: #646cff;
+  background-color: #f8f9ff;
+}
+
+.video-card.selected {
+  border-color: #646cff;
+  background-color: #f0f2ff;
+}
+
+.video-card h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: #333;
+}
+
+.video-card p {
+  margin: 0;
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.video-player {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.video-player video {
+  width: 100%;
+  max-width: 800px;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.upload-section {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+  background-color: #fafafa;
+}
+
+.loading {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+}
+
+.no-videos {
+  text-align: center;
+  color: #888;
+  font-style: italic;
+  padding: 2rem;
+}
