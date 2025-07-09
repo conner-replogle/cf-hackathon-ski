@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 interface Video {
   key: string;
@@ -8,6 +8,9 @@ interface Video {
 }
 
 export default function Library() {
+  const { eventId } = useParams<{ eventId: string }>();
+  const currentEventId = eventId ? parseInt(eventId, 10) : null;
+
   const [videos, setVideos] = useState<Video[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -17,7 +20,7 @@ export default function Library() {
   const fetchVideos = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/videos');
+      const response = await fetch(`/api/${currentEventId}/videos`);
       if (response.ok) {
         const videoList = await response.json();
         setVideos(videoList);
@@ -30,8 +33,10 @@ export default function Library() {
   };
 
   useEffect(() => {
-    fetchVideos();
-  }, []);
+    if (currentEventId) {
+      fetchVideos();
+    }
+  }, [currentEventId]);
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -57,7 +62,7 @@ export default function Library() {
   return (
     <div className="library-page">
       <div className="section-header">
-        <h2>Video Library</h2>
+        <h2>Video Library for Event: {currentEventId}</h2>
         {videos.length > 0 && (
           <button 
             className="playlist-button"
@@ -73,7 +78,7 @@ export default function Library() {
       ) : videos.length === 0 ? (
         <div className="no-videos">
           <p>No videos uploaded yet.</p>
-          <button onClick={() => navigate('/upload')} className="upload-button">
+          <button onClick={() => navigate(`/${currentEventId}/upload`)} className="upload-button">
             Upload Your First Video
           </button>
         </div>
