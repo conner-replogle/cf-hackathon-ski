@@ -1,9 +1,8 @@
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-  color: "black"
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  color: #333;
 }
 
 .logo {
@@ -261,4 +260,369 @@
 .playlist-item[draggable="true"]:hover {
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Home Page Styles */
+.home-page {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.hero-section {
+  margin-bottom: 3rem;
+}
+
+.hero-section h2 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.hero-section p {
+  font-size: 1.2rem;
+  color: #666;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
+  text-align: left;
+}
+
+.feature-card {
+  padding: 1.5rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #fff 100%);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.feature-card h3 {
+  margin-bottom: 0.75rem;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.feature-card p {
+  color: #666;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.quick-actions {
+  text-align: center;
+}
+
+.quick-actions h3 {
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.action-button {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  background-color: #646cff;
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.action-button:hover {
+  background-color: #535bf2;
+  transform: translateY(-2px);
+}
+
+/* Upload Page Styles */
+.upload-page {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.upload-page h2 {
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.upload-page > p {
+  margin-bottom: 2rem;
+  color: #666;
+}
+
+.upload-status {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.upload-status.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.upload-status.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.upload-info {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.upload-info h3 {
+  margin-bottom: 0.75rem;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.upload-info ul {
+  margin: 0 0 1.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.upload-info li {
+  margin-bottom: 0.25rem;
+  color: #666;
+}
+
+/* Library Page Styles */
+.library-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.upload-button, .browse-button {
+  background-color: #646cff;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  text-decoration: none;
+  display: inline-block;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.upload-button:hover, .browse-button:hover {
+  background-color: #535bf2;
+  transform: translateY(-2px);
+}
+
+.video-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.play-button, .add-button {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.play-button {
+  background-color: #646cff;
+  color: white;
+}
+
+.play-button:hover {
+  background-color: #535bf2;
+}
+
+.add-button {
+  background-color: #28a745;
+  color: white;
+}
+
+.add-button:hover {
+  background-color: #218838;
+}
+
+.close-player-button {
+  margin-top: 1rem;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s ease;
+}
+
+.close-player-button:hover {
+  background-color: #5a6268;
+}
+
+/* Playlist Page Styles */
+.playlist-page {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.empty-playlist {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #666;
+}
+
+.empty-playlist p {
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+}
+
+.playlist-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.clear-button {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s ease;
+}
+
+.clear-button:hover {
+  background-color: #c82333;
+}
+
+.play-pause-button {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s ease;
+}
+
+.play-pause-button:hover {
+  background-color: #218838;
+}
+
+.video-info {
+  flex: 1;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.video-size {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.playlist-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.jump-button, .remove-button {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.jump-button {
+  background-color: #646cff;
+  color: white;
+}
+
+.jump-button:hover:not(:disabled) {
+  background-color: #535bf2;
+}
+
+.jump-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.remove-button {
+  background-color: #dc3545;
+  color: white;
+}
+
+.remove-button:hover {
+  background-color: #c82333;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .features {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .video-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .playlist-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .playlist-controls {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .playlist-item-actions {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
 }
