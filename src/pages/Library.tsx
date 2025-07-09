@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 interface Video {
@@ -17,7 +17,7 @@ export default function Library() {
   const navigate = useNavigate();
 
   // Fetch videos from the API
-  const fetchVideos = async () => {
+  const fetchVideos = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/${currentEventId}/videos`);
@@ -30,13 +30,13 @@ export default function Library() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentEventId]);
 
   useEffect(() => {
     if (currentEventId) {
       fetchVideos();
     }
-  }, [currentEventId]);
+  }, [currentEventId, fetchVideos]);
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
