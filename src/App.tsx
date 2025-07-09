@@ -5,6 +5,7 @@ import Upload from './pages/Upload';
 import Watch from './pages/Watch';
 import './App.css';
 import ConnerTest from './pages/ConnerTest';
+import Admin from './pages/Admin';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
           <Route path=":eventId/upload" element={<Upload />} />
           <Route path=":eventId/watch" element={<Watch />} />
           <Route path="conner" element={<ConnerTest />} />
+          <Route path="admin" element={<Admin />} />
         </Route>
       </Routes>
     </Router>

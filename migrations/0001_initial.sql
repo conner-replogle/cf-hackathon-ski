@@ -25,6 +25,8 @@ CREATE TABLE Turns (
     event_id INTEGER,
     athlete_id INTEGER,
     r2_video_link TEXT,
+    latitude REAL,
+    longitude REAL,
     FOREIGN KEY (event_id) REFERENCES Event(event_id),
     FOREIGN KEY (athlete_id) REFERENCES Athletes(athlete_id),
     FOREIGN KEY (run_id) REFERENCES Run(run_id)
