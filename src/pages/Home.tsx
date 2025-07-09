@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Select,
@@ -19,21 +19,64 @@ const initialEvents = [
 ];
 
 export default function Home() {
-  const [events, setEvents] = useState(initialEvents);
+  const [events, setEvents] = useState<{
+    event_id: number;
+    event_name: string;
+  }[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null);
   const [newEventName, setNewEventName] = useState("");
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
 
-  const handleCreateEvent = () => {
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const response = await fetch("/api/events");
+        const data = await response.json();
+        if (data.success) {
+          setEvents(data.events);
+        }
+      } catch (error) {
+        console.error("Error fetching events:", error);
+      }
+    };
+    fetchEvents();
+  }, []);
+
+  const handleCreateEvent = async () => {
     if (newEventName.trim() !== "") {
-      const newEvent = {
-        event_id: events.length + 1,
-        event_name: newEventName,
-      };
-      setEvents([...events, newEvent]);
-      setSelectedEvent(newEvent.event_id);
-      setNewEventName("");
-      setIsCreatingEvent(false);
+      try {
+        const response = await fetch("/api/events", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ event_name: newEventName }),
+        });
+        const data = await response.json();
+        if (data.success) {
+          // Re-fetch events to get the newly created event with its ID
+          const updatedResponse = await fetch("/api/events");
+          const updatedData = await updatedResponse.json();
+          if (updatedData.success) {
+            setEvents(updatedData.events);
+            // Find the newly created event and select it
+            const createdEvent = updatedData.events.find(
+              (event: { event_name: string }) => event.event_name === newEventName,
+            );
+            if (createdEvent) {
+              setSelectedEvent(createdEvent.event_id);
+            }
+          }
+          setNewEventName("");
+          setIsCreatingEvent(false);
+        } else {
+          console.error("Error creating event:", data.message);
+          alert(`Error creating event: ${data.message}`);
+        }
+      } catch (error) {
+        console.error("Error creating event:", error);
+        alert("An error occurred while creating the event.");
+      }
     }
   };
 
