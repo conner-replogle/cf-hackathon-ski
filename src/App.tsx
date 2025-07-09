@@ -13,8 +13,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
-          <Route path="upload" element={<Upload />} />
-          <Route path="library" element={<Library />} />
+          <Route path=":eventId/upload" element={<Upload />} />
+          <Route path=":eventId/library" element={<Library />} />
           <Route path="playlist" element={<Playlist />} />
           <Route path="conner" element={<ConnerTest />} />
         </Route>
