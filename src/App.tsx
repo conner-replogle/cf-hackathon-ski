@@ -1,10 +1,9 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Layout from './components/Layout';
-import Home from './pages/Home';
-import Upload from './pages/Upload';
-import Library from './pages/Library';
-import Playlist from './pages/Playlist';
-import './App.css';
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Layout from "./components/Layout";
+import Home from "./pages/Home";
+import Upload from "./pages/Upload";
+import Library from "./pages/Library";
+import Playlist from "./pages/Playlist";
 
 function App() {
   return (
@@ -21,4 +20,4 @@ function App() {
   );
 }
 
-export default App
+export default App;
