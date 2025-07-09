@@ -1,15 +1,13 @@
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link } from "react-router-dom";
 import {
   NavigationMenu,
   NavigationMenuList,
   NavigationMenuItem,
   NavigationMenuLink,
-} from '@/components/ui/navigation-menu';
-import Logo from '@/assets/generated-image.png';
-
+} from "@/components/ui/navigation-menu";
+import Logo from "@/assets/generated-image.png";
 
 export default function Layout() {
-
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b flex items-center justify-between flex-wrap p-4">
@@ -18,24 +16,22 @@ export default function Layout() {
             <img src={Logo} className="h-16" alt="US Ski Team logo" />
           </Link>
         </div>
-        <h1>Video Upload & Player</h1>
+        <h1 className="text-foreground">Ski Video Upload & Player</h1>
         <NavigationMenu>
           <NavigationMenuList>
             <NavigationMenuItem>
               <Link to="/">
-                <NavigationMenuLink className={location.pathname === '/' ? 'bg-accent text-accent-foreground' : ''}>
+                <NavigationMenuLink
+                  className={
+                    location.pathname === "/"
+                      ? "bg-accent text-accent-foreground"
+                      : ""
+                  }
+                >
                   Home
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>
-            <NavigationMenuItem>
-              <Link to="/upload">
-                <NavigationMenuLink className={location.pathname === '/upload' ? 'bg-accent text-accent-foreground' : ''}>
-                  Upload
-                </NavigationMenuLink>
-              </Link>
-            </NavigationMenuItem>
-           
           </NavigationMenuList>
         </NavigationMenu>
       </header>
