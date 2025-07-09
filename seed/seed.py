@@ -6,6 +6,99 @@ import random
 BASE_URL = "http://localhost:5173/api"
 VIDEO_DIRECTORY = "videos"
 
+# --- Sample Data ---
+# A map of entries to seed the database with.
+SAMPLES = [
+    {
+        "athlete_name": "Yuto Horigome",
+        "events": [
+            {
+                "event_name": "Street League Skateboarding 2025",
+                "runs": [
+                    {
+                        "run_name": "Run 1",
+                        "turns": ["Nollie 270 Boardslide", "Switch Frontside 180 5-0"]
+                    },
+                    {
+                        "run_name": "Best Trick 4",
+                        "turns": ["Lazer Flip", "Hardflip Late 180"]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "athlete_name": "Sky Brown",
+        "events": [
+            {
+                "event_name": "X Games California 2025",
+                "runs": [
+                    {
+                        "run_name": "Park Finals",
+                        "turns": ["540 Stalefish", "Frontside Air", "Backside Smith Grind"]
+                    }
+                ]
+            },
+            {
+                "event_name": "Vans Park Series 2025",
+                "runs": [
+                    {
+                        "run_name": "Qualifying Heat",
+                        "turns": ["Indy Air", "McTwist"]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "athlete_name": "Marcus Kleveland",
+        "events": [
+            {
+                "event_name": "Burton US Open 2025",
+                "runs": [
+                    {
+                        "run_name": "Slopestyle Run 2",
+                        "turns": ["Backside Triple Cork 1800", "Switch Backside 1620"]
+                    },
+                     {
+                        "run_name": "Big Air Final",
+                        "turns": ["Nollie Frontside 2160"]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "athlete_name": "Leticia Bufoni",
+        "events": [
+            {
+                "event_name": "Dew Tour 2025",
+                "runs": [
+                    {
+                        "run_name": "Streetstyle Best Trick",
+                        "turns": ["Feeble Grind to Fakie", "Kickflip Frontside Boardslide"]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "athlete_name": "Anna Gasser",
+        "events": [
+            {
+                "event_name": "Laax Open 2025",
+                "runs": [
+                    {
+                        "run_name": "Final Run",
+                        "turns": ["Cab Double Underflip 900", "Frontside 1080", "Backside 720"]
+                    }
+                ]
+            }
+        ]
+    }
+]
+
+
 # --- Helper Functions ---
 
 def create_athlete(name):
@@ -147,60 +240,66 @@ def get_random_video(directory):
         return None
 
 def main():
-    """Main function to run the seeding process."""
+    """Main function to iterate through the SAMPLES map and seed the database."""
     print("--- Starting Database Seed ---")
 
-    # 1. Create an Athlete
-    create_athlete("John Doe")
-    athletes = get_athletes()
-    if not athletes:
-        print("Could not retrieve athletes. Aborting.")
-        return
-    athlete = athletes[-1] # Get the most recently created athlete
-    athlete_id = athlete['athlete_id']
-    print(f"Using athlete ID: {athlete_id}")
-
-    # 2. Create an Event
-    create_event("Summer Jam 2025")
-    events = get_events()
-    if not events:
-        print("Could not retrieve events. Aborting.")
-        return
-    event = events[-1] # Get the most recently created event
-    event_id = event['event_id']
-    print(f"Using event ID: {event_id}")
-
-    # 3. Create a Run for the Athlete in the Event
-    create_run("Final Run", event_id, athlete_id)
-    runs = get_runs_for_event(event_id)
-    if not runs:
-        print("Could not retrieve runs. Aborting.")
-        return
-    run = runs[-1] # Get the most recently created run
-    run_id = run['run_id']
-    print(f"Using run ID: {run_id}")
-
-    # 4. Create several Turns for the Run and upload a video for each
-    for i in range(1, 4): # Create 3 turns
-        turn_name = f"Turn {i}"
-        create_turn(turn_name, run_id, athlete_id, event_id)
-        
-        # 5. Get the created turn to obtain its ID
-        turns = get_turns_for_run(run_id)
-        if not turns:
-            print(f"Could not retrieve turns for run {run_id}. Cannot upload video.")
+    for athlete_data in SAMPLES:
+        # 1. Create the Athlete, then fetch its ID
+        athlete_name = athlete_data["athlete_name"]
+        create_athlete(athlete_name)
+        all_athletes = get_athletes()
+        if not all_athletes:
+            print(f"Could not retrieve athletes after creating {athlete_name}. Skipping.")
             continue
-        
-        created_turn = turns[-1] # Get the last created turn
-        turn_id = created_turn['turn_id']
+        athlete = all_athletes[-1] # Get the most recently created athlete
+        athlete_id = athlete['athlete_id']
+        print(f"--- Processing for Athlete: {athlete_name} (ID: {athlete_id}) ---")
 
-        # 6. Upload a random video for the new turn
-        video_path = get_random_video(VIDEO_DIRECTORY)
-        if video_path:
-            upload_video_for_turn(turn_id, video_path)
+        for event_data in athlete_data["events"]:
+            # 2. Create the Event, then fetch its ID
+            event_name = event_data["event_name"]
+            create_event(event_name)
+            all_events = get_events()
+            if not all_events:
+                print(f"Could not retrieve events after creating {event_name}. Skipping.")
+                continue
+            event = all_events[-1] # Get the most recently created event
+            event_id = event['event_id']
+            print(f"--- Processing for Event: {event_name} (ID: {event_id}) ---")
+
+            for run_data in event_data["runs"]:
+                # 3. Create the Run, then fetch its ID
+                run_name = run_data["run_name"]
+                create_run(run_name, event_id, athlete_id)
+                runs_for_event = get_runs_for_event(event_id)
+                if not runs_for_event:
+                    print(f"Could not retrieve runs after creating {run_name}. Skipping.")
+                    continue
+                run = runs_for_event[-1] # Get the most recently created run
+                run_id = run['run_id']
+                print(f"--- Processing for Run: {run_name} (ID: {run_id}) ---")
+
+                for turn_name in run_data["turns"]:
+                    # 4. Create the Turn, then fetch its ID
+                    create_turn(turn_name, run_id, athlete_id, event_id)
+                    turns_for_run = get_turns_for_run(run_id)
+                    if not turns_for_run:
+                        print(f"Could not retrieve turns for run {run_id}. Cannot upload video.")
+                        continue
+                    turn = turns_for_run[-1] # Get the most recently created turn
+                    turn_id = turn['turn_id']
+
+                    # 5. Upload a random video for the new turn
+                    video_path = get_random_video(VIDEO_DIRECTORY)
+                    if video_path:
+                        upload_video_for_turn(turn_id, video_path)
+                    else:
+                        print("No video found to upload.")
+                print("-" * 20)
+        print("=" * 40 + "\n")
+
 
     print("\n--- Database Seed Finished ---")
-
 
 if __name__ == "__main__":
     main()

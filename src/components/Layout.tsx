@@ -1,21 +1,21 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link } from 'react-router-dom';
 import {
   NavigationMenu,
   NavigationMenuList,
   NavigationMenuItem,
   NavigationMenuLink,
 } from '@/components/ui/navigation-menu';
+import Logo from '@/assets/generated-image.png';
 
 
 export default function Layout() {
-  const location = useLocation();
 
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b flex items-center justify-between flex-wrap p-4">
         <div className="flex items-center gap-4">
           <Link to="/">
-            <img src="/us-ski-team-logo.svg" className="h-10" alt="US Ski Team logo" />
+            <img src={Logo} className="h-16" alt="US Ski Team logo" />
           </Link>
         </div>
         <h1>Video Upload & Player</h1>
@@ -35,20 +35,7 @@ export default function Layout() {
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>
-            <NavigationMenuItem>
-              <Link to="/library">
-                <NavigationMenuLink className={location.pathname === '/library' ? 'bg-accent text-accent-foreground' : ''}>
-                  Library
-                </NavigationMenuLink>
-              </Link>
-            </NavigationMenuItem>
-            <NavigationMenuItem>
-              <Link to="/playlist">
-                <NavigationMenuLink className={location.pathname === '/playlist' ? 'bg-accent text-accent-foreground' : ''}>
-                  Playlist
-                </NavigationMenuLink>
-              </Link>
-            </NavigationMenuItem>
+           
           </NavigationMenuList>
         </NavigationMenu>
       </header>

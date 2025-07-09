@@ -184,6 +184,7 @@ app.get('/api/runs/:runId/turns', async (c) => {
 });
 
 
+
 /**
  * Uploads a video for a specific turn and updates its R2 link.
  * @param { turnId: number }
@@ -205,10 +206,9 @@ app.post('/api/turns/:turnId/upload', async (c) => {
           return c.json({ success: false, message: 'Turn not found' }, 404);
       }
 
-      const videoKey = `videos/turn_${turnId}_${videoFile.name}`;
 
       // Upload to R2
-      let res = await c.env.VIDEOS.put(videoKey, videoFile.stream(), {
+      const res = await c.env.VIDEOS.put(videoFile.name, videoFile.stream(), {
           httpMetadata: { contentType: videoFile.type },
       });
 
@@ -219,6 +219,27 @@ app.post('/api/turns/:turnId/upload', async (c) => {
 
       return c.json({ success: true, message: 'Video uploaded successfully', r2_url: res.key });
 
+});
+
+
+app.get('/api/videos/:videoId', async (c) => {
+  const videoId = c.req.param('videoId');
+  try {
+    // Fetch the video from R2
+    const video = await c.env.VIDEOS.get(videoId);
+    if (!video) { 
+      return c.json({ success: false, message: 'Video not found' }, 404);
+    }
+    // Set the appropriate headers
+    c.header('Content-Type', video.httpMetadata?.contentType || 'application/octet-stream');
+    c.header('Content-Length', String(video.size));
+    c.header('Content-Disposition', `inline; filename="${videoId}"`);
+    // Return the video stream
+    return c.body(video.body, 200);
+  } catch (e: any) {
+    console.error('Error fetching video:', e);
+    return c.json({ success: false, message: 'An error occurred while fetching the video', error: e.message }, 500);
+  }
 });
 
 
