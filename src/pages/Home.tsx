@@ -9,7 +9,12 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
 
 // Hardcoded event data based on the provided schema
 const initialEvents = [
@@ -19,10 +24,12 @@ const initialEvents = [
 ];
 
 export default function Home() {
-  const [events, setEvents] = useState<{
-    event_id: number;
-    event_name: string;
-  }[]>([]);
+  const [events, setEvents] = useState<
+    {
+      event_id: number;
+      event_name: string;
+    }[]
+  >([]);
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null);
   const [newEventName, setNewEventName] = useState("");
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
@@ -61,7 +68,8 @@ export default function Home() {
             setEvents(updatedData.events);
             // Find the newly created event and select it
             const createdEvent = updatedData.events.find(
-              (event: { event_name: string }) => event.event_name === newEventName,
+              (event: { event_name: string }) =>
+                event.event_name === newEventName,
             );
             if (createdEvent) {
               setSelectedEvent(createdEvent.event_id);
@@ -87,73 +95,82 @@ export default function Home() {
 
   return (
     <div className="flex flex-col items-center justify-center py-8">
-      <div className="mb-12 text-center">
+      <div className="mb-12 text-center text-foreground">
         <h2 className="text-4xl font-bold mb-4">
           Welcome to Ski Video Manager
         </h2>
-        <p className="text-lg text-neutral-600 max-w-2xl mx-auto">
+        <p className="text-lg max-w-2xl mx-auto">
           Select or create an event to get started.
         </p>
       </div>
 
       {!selectedEvent ? (
-        <div className="flex flex-col items-center space-y-4">
-          <h3>Select an Event</h3>
-          <Select
-            onValueChange={(value) => setSelectedEvent(parseInt(value, 10))}
-            value={selectedEvent ? String(selectedEvent) : ""}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Choose an event" />
-            </SelectTrigger>
-            <SelectContent>
-              {events.map((event) => (
-                <SelectItem key={event.event_id} value={String(event.event_id)}>
-                  {event.event_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <Card className="w-full max-w-md mx-auto">
+          <CardHeader>
+            <CardTitle className="text-center text-foreground">Select or Create an Event</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center space-y-4">
+            <h3 className="text-foreground">Select an Event</h3>
+            <Select
+              onValueChange={(value) => setSelectedEvent(parseInt(value, 10))}
+              value={selectedEvent ? String(selectedEvent) : ""}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Choose an event" />
+              </SelectTrigger>
+              <SelectContent>
+                {events.map((event) => (
+                  <SelectItem key={event.event_id} value={String(event.event_id)}>
+                    {event.event_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <p className="text-gray-500 font-semibold my-4">or</p>
+            <p className="text-gray-500 font-semibold my-4">or</p>
 
-          {!isCreatingEvent ? (
-            <Button onClick={() => setIsCreatingEvent(true)}>
-              Create New Event
-            </Button>
-          ) : (
-            <div className="flex flex-col items-center space-y-4 w-full">
-              <Input
-                type="text"
-                value={newEventName}
-                onChange={(e) => setNewEventName(e.target.value)}
-                placeholder="Enter new event name"
-              />
-              <Button onClick={handleCreateEvent}>Save Event</Button>
-              <Button
-                onClick={() => setIsCreatingEvent(false)}
-                variant="outline"
-              >
-                Cancel
+            {!isCreatingEvent ? (
+              <Button onClick={() => setIsCreatingEvent(true)}>
+                Create New Event
               </Button>
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="flex flex-col items-center space-y-4 w-full">
+                <Input
+                  type="text"
+                  value={newEventName}
+                  onChange={(e) => setNewEventName(e.target.value)}
+                  placeholder="Enter new event name"
+                />
+                <Button onClick={handleCreateEvent}>Save Event</Button>
+                <Button
+                  onClick={() => setIsCreatingEvent(false)}
+                  variant="outline"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       ) : (
-        <div className="flex flex-col items-center space-y-4">
-          <h3>Event: {getSelectedEventName()}</h3>
-          <div className="flex space-x-4">
-            <Link to={`/${selectedEvent}/upload`}>
-              <Button>Upload Videos</Button>
-            </Link>
-            <Link to={`/${selectedEvent}/watch`}>
-              <Button>Watch Videos</Button>
-            </Link>
-          </div>
-          <Button onClick={() => setSelectedEvent(null)} variant="outline">
-            Back to Event Selection
-          </Button>
-        </div>
+        <Card className="w-full max-w-md mx-auto">
+          <CardHeader>
+            <CardTitle className="text-center text-foreground">Event: {getSelectedEventName()}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center space-y-4">
+            <div className="flex space-x-4">
+              <Link to={`/${selectedEvent}/upload`}>
+                <Button>Upload Videos</Button>
+              </Link>
+              <Link to={`/${selectedEvent}/watch`}>
+                <Button>Watch Videos</Button>
+              </Link>
+            </div>
+            <Button onClick={() => setSelectedEvent(null)} variant="outline">
+              Back to Event Selection
+            </Button>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
