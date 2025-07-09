@@ -98,10 +98,82 @@
 }
 
 /* Video Player Styles */
-.video-player {
+.video-player-container {
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.video-wrapper {
+  position: relative;
+}
+
+.video-wrapper video {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.video-controls {
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.9));
+  color: white;
+  padding: 1rem;
+}
+
+.timeline {
+  position: relative;
+  background: rgba(255, 255, 255, 0.3);
+  height: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: height 0.2s ease;
+}
+
+.timeline:hover {
+  height: 12px;
+}
+
+.timeline-progress {
+  background: #3b82f6;
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.1s ease;
+}
+
+.turn-marker {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+}
+
+.turn-marker:hover {
+  background: rgba(255, 255, 255, 1);
+  width: 3px;
+}
+
+.turn-labels {
+  position: relative;
+  height: 20px;
+  margin-top: 8px;
+}
+
+.turn-label {
+  position: absolute;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.turn-label:hover {
+  color: rgba(255, 255, 255, 1);
 }
 
 .video-container {
