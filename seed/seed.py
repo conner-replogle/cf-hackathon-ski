@@ -6,11 +6,47 @@ import random
 BASE_URL = "http://localhost:5173/api"
 VIDEO_DIRECTORY = "videos"
 
-# --- Sample Data ---
+# --- Geographic Data for Ski Trails ---
+# Defines a set of famous ski trails at Jackson Hole, with 5 coordinate points for each.
+SKI_TRAILS = {
+    "Jackson Hole": {
+        "Corbet's Couloir": [
+            {"lat": 43.5948, "lon": -110.8545, "name": "The Drop In"},
+            {"lat": 43.5945, "lon": -110.8542, "name": "The Choke"},
+            {"lat": 43.5942, "lon": -110.8539, "name": "The Apron"},
+            {"lat": 43.5939, "lon": -110.8536, "name": "Mid-Run"},
+            {"lat": 43.5936, "lon": -110.8533, "name": "Run Out"}
+        ],
+        "Rendezvous Bowl": [
+            {"lat": 43.5940, "lon": -110.8520, "name": "Bowl Entrance"},
+            {"lat": 43.5935, "lon": -110.8515, "name": "Fall Line"},
+            {"lat": 43.5930, "lon": -110.8510, "name": "Traverse"},
+            {"lat": 43.5925, "lon": -110.8505, "name": "Lower Section"},
+            {"lat": 43.5920, "lon": -110.8500, "name": "Meet the Groomer"}
+        ],
+         "The Hobacks": [
+            {"lat": 43.5880, "lon": -110.8450, "name": "South Hoback Entry"},
+            {"lat": 43.5875, "lon": -110.8440, "name": "The Glades"},
+            {"lat": 43.5870, "lon": -110.8430, "name": "The Steeps"},
+            {"lat": 43.5865, "lon": -110.8420, "name": "Creek Bed"},
+            {"lat": 43.5860, "lon": -110.8410, "name": "Exit Flats"}
+        ],
+        "Tensleep Bowl": [
+            {"lat": 43.5915, "lon": -110.8580, "name": "Tensleep Entry"},
+            {"lat": 43.5908, "lon": -110.8572, "name": "First Pitch"},
+            {"lat": 43.5901, "lon": -110.8564, "name": "The Funnel"},
+            {"lat": 43.5894, "lon": -110.8556, "name": "Powder Fields"},
+            {"lat": 43.5887, "lon": -110.8548, "name": "Lower Traverse Out"}
+        ]
+    }
+}
+
+
 # A map of entries to seed the database with.
 SAMPLES = [
     {
         "athlete_name": "Yuto Horigome",
+        "discipline": "Skateboarding",
         "events": [
             {
                 "event_name": "Street League Skateboarding 2025",
@@ -29,6 +65,7 @@ SAMPLES = [
     },
     {
         "athlete_name": "Sky Brown",
+        "discipline": "Skateboarding",
         "events": [
             {
                 "event_name": "X Games California 2025",
@@ -52,24 +89,20 @@ SAMPLES = [
     },
     {
         "athlete_name": "Marcus Kleveland",
+        "discipline": "Snowboarding",
         "events": [
             {
                 "event_name": "Burton US Open 2025",
                 "runs": [
-                    {
-                        "run_name": "Slopestyle Run 2",
-                        "turns": ["Backside Triple Cork 1800", "Switch Backside 1620"]
-                    },
-                     {
-                        "run_name": "Big Air Final",
-                        "turns": ["Nollie Frontside 2160"]
-                    }
+                    { "run_name": "Slopestyle Run 2" },
+                     { "run_name": "Big Air Final" }
                 ]
             }
         ]
     },
     {
         "athlete_name": "Leticia Bufoni",
+        "discipline": "Skateboarding",
         "events": [
             {
                 "event_name": "Dew Tour 2025",
@@ -84,14 +117,12 @@ SAMPLES = [
     },
     {
         "athlete_name": "Anna Gasser",
+        "discipline": "Snowboarding",
         "events": [
             {
                 "event_name": "Laax Open 2025",
                 "runs": [
-                    {
-                        "run_name": "Final Run",
-                        "turns": ["Cab Double Underflip 900", "Frontside 1080", "Backside 720"]
-                    }
+                    { "run_name": "Final Run" }
                 ]
             }
         ]
@@ -176,19 +207,27 @@ def get_runs_for_event(event_id):
         print(f"Error getting runs for event {event_id}: {e}")
         return []
 
-def create_turn(name, run_id, athlete_id, event_id):
-    """Creates a new turn."""
+def create_turn(name, run_id, athlete_id, event_id, latitude=None, longitude=None):
+    """Creates a new turn, optionally with geographic coordinates."""
     url = f"{BASE_URL}/turns"
     payload = {
         "turn_name": name,
         "run_id": run_id,
         "athlete_id": athlete_id,
-        "event_id": event_id
+        "event_id": event_id,
+        "latitude": latitude,
+        "longitude": longitude
     }
+    # Filter out null values so the API doesn't receive them if they are not provided
+    payload = {k: v for k, v in payload.items() if v is not None}
+    
     try:
         response = requests.post(url, json=payload)
         response.raise_for_status()
-        print(f"Turn '{name}' for run {run_id} created successfully.")
+        if latitude is not None and longitude is not None:
+            print(f"Turn '{name}' for run {run_id} at ({latitude}, {longitude}) created successfully.")
+        else:
+            print(f"Turn '{name}' for run {run_id} created successfully.")
         return response.json()
     except requests.exceptions.RequestException as e:
         print(f"Error creating turn '{name}': {e}")
@@ -242,54 +281,77 @@ def get_random_video(directory):
 def main():
     """Main function to iterate through the SAMPLES map and seed the database."""
     print("--- Starting Database Seed ---")
+    
+    jackson_hole_trails = list(SKI_TRAILS["Jackson Hole"].keys())
 
     for athlete_data in SAMPLES:
-        # 1. Create the Athlete, then fetch its ID
+        # 1. Create the Athlete
         athlete_name = athlete_data["athlete_name"]
+        athlete_discipline = athlete_data["discipline"]
         create_athlete(athlete_name)
         all_athletes = get_athletes()
         if not all_athletes:
             print(f"Could not retrieve athletes after creating {athlete_name}. Skipping.")
             continue
-        athlete = all_athletes[-1] # Get the most recently created athlete
+        athlete = all_athletes[-1]
         athlete_id = athlete['athlete_id']
-        print(f"--- Processing for Athlete: {athlete_name} (ID: {athlete_id}) ---")
+        print(f"--- Processing for Athlete: {athlete_name} (ID: {athlete_id}), Discipline: {athlete_discipline} ---")
 
         for event_data in athlete_data["events"]:
-            # 2. Create the Event, then fetch its ID
+            # 2. Create the Event
             event_name = event_data["event_name"]
             create_event(event_name)
             all_events = get_events()
             if not all_events:
                 print(f"Could not retrieve events after creating {event_name}. Skipping.")
                 continue
-            event = all_events[-1] # Get the most recently created event
+            event = all_events[-1]
             event_id = event['event_id']
             print(f"--- Processing for Event: {event_name} (ID: {event_id}) ---")
 
             for run_data in event_data["runs"]:
-                # 3. Create the Run, then fetch its ID
+                # 3. Create the Run
                 run_name = run_data["run_name"]
                 create_run(run_name, event_id, athlete_id)
                 runs_for_event = get_runs_for_event(event_id)
                 if not runs_for_event:
                     print(f"Could not retrieve runs after creating {run_name}. Skipping.")
                     continue
-                run = runs_for_event[-1] # Get the most recently created run
+                run = runs_for_event[-1]
                 run_id = run['run_id']
                 print(f"--- Processing for Run: {run_name} (ID: {run_id}) ---")
 
-                for turn_name in run_data["turns"]:
-                    # 4. Create the Turn, then fetch its ID
-                    create_turn(turn_name, run_id, athlete_id, event_id)
+                # 4. Determine which turns to create
+                turns_to_create = []
+                if athlete_discipline == "Snowboarding":
+                    random_trail_name = random.choice(jackson_hole_trails)
+                    print(f"Selected ski trail for run: {random_trail_name}")
+                    trail_points = SKI_TRAILS["Jackson Hole"][random_trail_name]
+                    for point in trail_points:
+                        turn_name = f"{random_trail_name} - {point['name']}"
+                        turns_to_create.append({"name": turn_name, "lat": point['lat'], "lon": point['lon']})
+                else:
+                    for turn_name in run_data.get("turns", []):
+                        turns_to_create.append({"name": turn_name, "lat": None, "lon": None})
+
+                for turn_info in turns_to_create:
+                    # 5. Create the Turn with its coordinates
+                    create_turn(
+                        turn_info["name"], 
+                        run_id, 
+                        athlete_id, 
+                        event_id, 
+                        latitude=turn_info["lat"], 
+                        longitude=turn_info["lon"]
+                    )
                     turns_for_run = get_turns_for_run(run_id)
                     if not turns_for_run:
                         print(f"Could not retrieve turns for run {run_id}. Cannot upload video.")
                         continue
-                    turn = turns_for_run[-1] # Get the most recently created turn
+                    turn = turns_for_run[-1]
                     turn_id = turn['turn_id']
 
-                    # 5. Upload a random video for the new turn
+                    # 6. Upload a random video for the new turn
                     video_path = get_random_video(VIDEO_DIRECTORY)
                     if video_path:
                         upload_video_for_turn(turn_id, video_path)
@@ -297,7 +359,6 @@ def main():
                         print("No video found to upload.")
                 print("-" * 20)
         print("=" * 40 + "\n")
-
 
     print("\n--- Database Seed Finished ---")
 
