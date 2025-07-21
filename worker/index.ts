@@ -174,6 +174,53 @@ app.post('/api/turns', async (c) => {
   }
 });
 
+app.get('/api/runs', async (c) => {
+  try {
+    const { results } = await c.env.DB.prepare('SELECT * FROM Run').all();
+    return c.json({ success: true, runs: results });
+  } catch (e: any) {
+    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
+  }
+})
+
+
+app.get('/api/runs/:runId', async (c) => {
+  try {
+    const runId = c.req.param('runId');
+
+    const stmt = c.env.DB.prepare(`
+      SELECT
+        r.run_id,
+        r.run_name,
+        r.event_id,
+        a.athlete_id,
+        a.athlete_name
+      FROM Run r
+      JOIN Athletes a ON r.athlete_id = a.athlete_id
+      WHERE r.run_id = ?
+    `);
+
+    const result: any = await stmt.bind(runId).first();
+
+    if (!result) {
+      return c.json({ success: false, message: 'Run not found' }, 404);
+    }
+
+    const run = {
+      run_id: result.run_id,
+      run_name: result.run_name,
+      event_id: result.event_id,
+      athlete: {
+        athlete_id: result.athlete_id,
+        athlete_name: result.athlete_name,
+      },
+    };
+
+    return c.json({ success: true, run: run });
+  } catch (e: any) {
+    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
+  }
+})
 /**
  * Lists all turns for a given run.
  * @param { runId: number }
@@ -230,17 +277,59 @@ app.post('/api/turns/:turnId/upload', async (c) => {
  */
 app.get('/api/videos/:videoId', async (c) => {
   const videoId = c.req.param('videoId');
+
   try {
-    const video = await c.env.VIDEOS.get(videoId);
-    if (!video) {
+    const range = c.req.header('range');
+    const videoObject = await c.env.VIDEOS.get(videoId);
+
+    if (videoObject === null) {
       return c.json({ success: false, message: 'Video not found' }, 404);
     }
-    
-    c.header('Content-Type', video.httpMetadata?.contentType || 'application/octet-stream');
-    c.header('Content-Length', String(video.size));
-    c.header('Content-Disposition', `inline; filename="${videoId}"`);
 
-    return c.body(video.body, 200);
+    c.header('Accept-Ranges', 'bytes');
+    c.header('Content-Type', videoObject.httpMetadata?.contentType || 'application/octet-stream');
+    c.header('ETag', videoObject.httpEtag);
+
+    if (range) {
+      const match = /^bytes=(\d+)-(\d*)$/.exec(range);
+      if (match) {
+        const start = parseInt(match[1], 10);
+        const end = match[2] ? parseInt(match[2], 10) : videoObject.size - 1;
+
+        if (start >= videoObject.size || end >= videoObject.size) {
+          return new Response('Range Not Satisfiable', {
+            status: 416,
+            headers: { 'Content-Range': `bytes */${videoObject.size}` },
+          });
+        }
+
+        const contentLength = end - start + 1;
+        const rangedObject = await c.env.VIDEOS.get(videoId, { range: { offset: start, length: contentLength } });
+
+        if (rangedObject === null) {
+          return new Response('Range Not Satisfiable', {
+            status: 416,
+            headers: { 'Content-Range': `bytes */${videoObject.size}` },
+          });
+        }
+
+        return new Response(rangedObject.body, {
+          status: 206,
+          headers: {
+            'Content-Range': `bytes ${start}-${end}/${videoObject.size}`,
+            'Content-Length': contentLength.toString(),
+            'Content-Type': videoObject.httpMetadata?.contentType || 'application/octet-stream',
+            'Accept-Ranges': 'bytes',
+            'ETag': videoObject.httpEtag,
+          },
+        });
+      }
+    }
+
+    // No range header, or invalid range, serve the full video
+    c.header('Content-Length', String(videoObject.size));
+    return c.body(videoObject.body, 200);
+
   } catch (e: any) {
     console.error('Error fetching video:', e);
     return c.json({ success: false, message: 'An error occurred while fetching the video', error: e.message }, 500);
