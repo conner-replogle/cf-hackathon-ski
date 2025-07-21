@@ -1,14 +1,18 @@
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { VideoPlayer } from "@/components/VideoPlayer";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { VideoPlayerContainer } from "@/components/VideoPlayerContainer";
+import { Card, CardContent } from "@/components/ui/card";
+
+interface Athlete {
+  athlete_id: number;
+  athlete_name: string;
+}
 
 interface Run {
   run_id: number;
   run_name: string;
+  athlete: Athlete;
   event_id: number;
-  athlete_id: number;
 }
 
 interface Turn {
@@ -20,100 +24,68 @@ interface Turn {
   r2_video_link: string;
 }
 
-interface Athlete {
-  athlete_id: number;
-  athlete_name: string;
-}
+
 
 export default function Watch() {
-  const { eventId } = useParams<{ eventId: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const currentEventId = eventId ? parseInt(eventId, 10) : null;
-  const selectedRunId = searchParams.get("runId") ? parseInt(searchParams.get("runId")!, 10) : null;
+  const { runId } = useParams<{ runId: string }>();
 
-  const [runs, setRuns] = useState<Run[]>([]);
+  const [run, setRun] = useState<Run | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
-  const [athletes, setAthletes] = useState<Athlete[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch athletes for displaying names
   useEffect(() => {
-    const fetchAthletes = async () => {
-      try {
-        const response = await fetch("/api/athletes");
-        const data = await response.json();
-        if (data.success) {
-          setAthletes(data.athletes);
-        }
-      } catch (error) {
-        console.error("Error fetching athletes:", error);
-      }
-    };
-    fetchAthletes();
-  }, []);
-
-  // Fetch all runs for the event
-  useEffect(() => {
-    const fetchRuns = async () => {
-      if (!currentEventId) return;
-      
-      try {
-        setLoading(true);
-        const response = await fetch(`/api/events/${currentEventId}/runs`);
-        const data = await response.json();
-        if (data.success) {
-          setRuns(data.runs);
-        } else {
-          setError("Failed to fetch runs");
-        }
-      } catch (error) {
-        console.error("Error fetching runs:", error);
-        setError("Error fetching runs");
-      } finally {
+    const fetchRunAndTurns = async () => {
+      if (!runId) {
         setLoading(false);
-      }
-    };
-
-    fetchRuns();
-  }, [currentEventId]);
-
-  // Fetch turns for the selected run
-  useEffect(() => {
-    const fetchTurns = async () => {
-      if (!selectedRunId) {
-        setTurns([]);
         return;
       }
-      
+
+      setLoading(true);
       try {
-        setLoading(true);
-        const response = await fetch(`/api/runs/${selectedRunId}/turns`);
-        const data = await response.json();
-        if (data.success) {
-          setTurns(data.turns);
+        // Fetch run details
+        const runResponse = await fetch(`/api/runs/${runId}`);
+        const runData = await runResponse.json();
+
+        if (runData.success) {
+          
+          setRun(runData.run);
         } else {
-          setError("Failed to fetch turns");
+          throw new Error(runData.error || 'Failed to fetch run details');
         }
-      } catch (error) {
-        console.error("Error fetching turns:", error);
-        setError("Error fetching turns");
+
+        // Fetch turns for the selected run
+        const turnsResponse = await fetch(`/api/runs/${runId}/turns`);
+        const turnsData = await turnsResponse.json();
+
+        if (turnsData.success) {
+          setTurns(turnsData.turns);
+        } else {
+          throw new Error(turnsData.error || 'Failed to fetch turns');
+        }
+
+        setError(null);
+      } catch (err: any) {
+        console.error("Error fetching run data:", err);
+        setError(err.message || "An unknown error occurred");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTurns();
-  }, [selectedRunId]);
+    fetchRunAndTurns();
+  }, [runId]);
 
-  const handleRunSelect = (runId: number) => {
-    setSearchParams({ runId: runId.toString() });
-  };
 
-  const getAthleteName = (athleteId: number) => {
-    const athlete = athletes.find(a => a.athlete_id === athleteId);
-    return athlete ? athlete.athlete_name : `Athlete ${athleteId}`;
-  };
+
+
+    if (!runId) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <p>Please select a run to watch.</p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -132,73 +104,28 @@ export default function Watch() {
   }
 
   return (
-    <div className="container mx-auto py-8min-h-screen">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8 text-center">
-          Watch Event {currentEventId}
-        </h1>
-
-        {!selectedRunId ? (
-          // Show list of runs when no run is selected
-          <div className="space-y-4">
-            <h2 className="text-2xl font-semibold mb-4">Select a Run to Watch</h2>
-            {runs.length === 0 ? (
-              <Card>
-                <CardContent className="p-6">
-                  <p className="text-center text-gray-600">No runs found for this event.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {runs.map((run) => (
-                  <Card key={run.run_id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <CardTitle className="text-lg">{run.run_name}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-gray-600 mb-4">
-                        Athlete: {getAthleteName(run.athlete_id)}
-                      </p>
-                      <Button 
-                        onClick={() => handleRunSelect(run.run_id)}
-                        className="w-full"
-                      >
-                        Watch Run
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          // Show video player when run is selected
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold">
-                Watching: {runs.find(r => r.run_id === selectedRunId)?.run_name}
-              </h2>
-              <Button 
-                variant="outline" 
-                onClick={() => setSearchParams({})}
-              >
-                ← Back to Runs
-              </Button>
+    <div className="min-h-screen w-full bg-background text-foreground">
+      <div className="w-full max-w-none p-0">
+        {run && (
+          <header className="bg-card p-6 shadow-md mb-8">
+            <div className="text-center">
+              <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl">{run.run_name}</h1>
+              <p className="mt-2 text-lg text-muted-foreground">{run.athlete.athlete_name}</p>
             </div>
-
-            {turns.length === 0 ? (
-              <Card>
-                <CardContent className="p-6">
-                  <p className="text-center text-gray-600">No turns found for this run.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="bg-white rounded-lg shadow-lg p-6">
-                <VideoPlayer turns={turns} />
-              </div>
-            )}
-          </div>
+          </header>
         )}
+
+        <main className="px-6 pb-8">
+          {turns.length === 0 ? (
+            <Card>
+              <CardContent className="p-6">
+                <p className="text-center text-muted-foreground">No turns found for this run.</p>
+              </CardContent>
+            </Card>
+          ) : (
+              <VideoPlayerContainer turns={turns} />
+          )}
+        </main>
       </div>
     </div>
   );

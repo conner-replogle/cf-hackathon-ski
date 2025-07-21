@@ -1,11 +1,3 @@
-#root {
-  width: 100%;
-  min-height: 100vh;
-  margin: 0;
-  padding: 0;
-  color: #333;
-}
-
 .logo {
   height: 6em;
   padding: 1.5em;
@@ -33,11 +25,6 @@
     animation: logo-spin infinite 20s linear;
   }
 }
-
-.card {
-  padding: 2em;
-}
-
 .read-the-docs {
   color: #888;
 }

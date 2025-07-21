@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
+import { RunCard } from "@/components/RunCard";
+import UploadDialog from "../components/UploadDialog";
 import {
   Select,
   SelectContent,
@@ -9,30 +10,31 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../components/ui/card";
 
-// Hardcoded event data based on the provided schema
-const initialEvents = [
-  { event_id: 1, event_name: "Slalom World Cup" },
-  { event_id: 2, event_name: "Freestyle Nationals" },
-  { event_id: 3, event_name: "Big Air Invitational" },
-];
+
+interface Event {
+  event_id: number;
+  event_name: string;
+}
+interface Athlete {
+  athlete_id: number;
+  athlete_name: string;
+}
+interface Run {
+  run_id: number;
+  run_name: string;
+  event_id: number;
+  athlete_id: number;
+}
 
 export default function Home() {
-  const [events, setEvents] = useState<
-    {
-      event_id: number;
-      event_name: string;
-    }[]
-  >([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [athletes, setAthletes] = useState<Athlete[]>([]);
+  const [runs, setRuns] = useState<Run[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null);
-  const [newEventName, setNewEventName] = useState("");
-  const [isCreatingEvent, setIsCreatingEvent] = useState(false);
+  const [selectedAthlete, setSelectedAthlete] = useState<number | null>(null);
+  const [searchText, setSearchText] = useState("");
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -49,129 +51,99 @@ export default function Home() {
     fetchEvents();
   }, []);
 
-  const handleCreateEvent = async () => {
-    if (newEventName.trim() !== "") {
+  useEffect(() => {
+    const fetchAthletes = async () => {
       try {
-        const response = await fetch("/api/events", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ event_name: newEventName }),
-        });
+        const response = await fetch("/api/athletes");
         const data = await response.json();
         if (data.success) {
-          // Re-fetch events to get the newly created event with its ID
-          const updatedResponse = await fetch("/api/events");
-          const updatedData = await updatedResponse.json();
-          if (updatedData.success) {
-            setEvents(updatedData.events);
-            // Find the newly created event and select it
-            const createdEvent = updatedData.events.find(
-              (event: { event_name: string }) =>
-                event.event_name === newEventName,
-            );
-            if (createdEvent) {
-              setSelectedEvent(createdEvent.event_id);
-            }
-          }
-          setNewEventName("");
-          setIsCreatingEvent(false);
-        } else {
-          console.error("Error creating event:", data.message);
-          alert(`Error creating event: ${data.message}`);
+          setAthletes(data.athletes);
         }
       } catch (error) {
-        console.error("Error creating event:", error);
-        alert("An error occurred while creating the event.");
+        console.error("Error fetching athletes:", error);
       }
-    }
-  };
+    };
+    fetchAthletes();
+  }, []);
 
-  const getSelectedEventName = () => {
-    const event = events.find((e) => e.event_id === selectedEvent);
-    return event ? event.event_name : "";
-  };
+  useEffect(() => {
+    const fetchRuns = async () => {
+      try {
+        const response = await fetch("/api/runs");
+        const data = await response.json();
+        if (data.success) {
+          setRuns(data.runs);
+        }
+      } catch (error) {
+        console.error("Error fetching runs:", error);
+      }
+    };
+    fetchRuns();
+  }, []);
+
+  const filteredRuns = useMemo(() => {
+    return runs.filter((run) => {
+      if (selectedEvent && run.event_id !== selectedEvent) return false;
+      if (selectedAthlete && run.athlete_id !== selectedAthlete) return false;
+      if (searchText && !run.run_name.toLowerCase().includes(searchText.toLowerCase())) return false;
+      return true;
+    });
+  }, [runs, selectedEvent, selectedAthlete, searchText]);
 
   return (
-    <div className="flex flex-col items-center justify-center py-8">
-      <div className="mb-12 text-center text-foreground">
-        <h2 className="text-4xl font-bold mb-4">
-          Welcome to Ski Video Manager
-        </h2>
-        <p className="text-lg max-w-2xl mx-auto">
-          Select or create an event to get started.
-        </p>
-      </div>
-
-      {!selectedEvent ? (
-        <Card className="w-full max-w-md mx-auto">
-          <CardHeader>
-            <CardTitle className="text-center text-foreground">Select or Create an Event</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center space-y-4">
-            <h3 className="text-foreground">Select an Event</h3>
-            <Select
-              onValueChange={(value) => setSelectedEvent(parseInt(value, 10))}
-              value={selectedEvent ? String(selectedEvent) : ""}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Choose an event" />
-              </SelectTrigger>
-              <SelectContent>
-                {events.map((event) => (
-                  <SelectItem key={event.event_id} value={String(event.event_id)}>
-                    {event.event_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <p className="text-gray-500 font-semibold my-4">or</p>
-
-            {!isCreatingEvent ? (
-              <Button onClick={() => setIsCreatingEvent(true)}>
-                Create New Event
-              </Button>
-            ) : (
-              <div className="flex flex-col items-center space-y-4 w-full">
-                <Input
-                  type="text"
-                  value={newEventName}
-                  onChange={(e) => setNewEventName(e.target.value)}
-                  placeholder="Enter new event name"
-                />
-                <Button onClick={handleCreateEvent}>Save Event</Button>
-                <Button
-                  onClick={() => setIsCreatingEvent(false)}
-                  variant="outline"
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="w-full max-w-md mx-auto">
-          <CardHeader>
-            <CardTitle className="text-center text-foreground">Event: {getSelectedEventName()}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center space-y-4">
-            <div className="flex space-x-4">
-              <Link to={`/${selectedEvent}/upload`}>
-                <Button>Upload Videos</Button>
-              </Link>
-              <Link to={`/${selectedEvent}/watch`}>
-                <Button>Watch Videos</Button>
-              </Link>
-            </div>
-            <Button onClick={() => setSelectedEvent(null)} variant="outline">
-              Back to Event Selection
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+    <div className="flex flex-col h-screen">
+      <header className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center gap-4">
+          <Input
+            placeholder="Search runs..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            className="w-64"
+          />
+          <Select value={selectedEvent ? String(selectedEvent) : "all"} onValueChange={(value) => setSelectedEvent(value === "all" ? null : Number(value))}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by event" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Events</SelectItem>
+              {events.map((event) => (
+                <SelectItem key={event.event_id} value={String(event.event_id)}>
+                  {event.event_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedAthlete ? String(selectedAthlete) : "all"} onValueChange={(value) => setSelectedAthlete(value === "all" ? null : Number(value))}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by athlete" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Athletes</SelectItem>
+              {athletes.map((athlete) => (
+                <SelectItem key={athlete.athlete_id} value={String(athlete.athlete_id)}>
+                  {athlete.athlete_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" onClick={() => {
+              setSelectedEvent(null);
+              setSelectedAthlete(null);
+              setSearchText("");
+          }}>Clear Filters</Button>
+        </div>
+        <Button onClick={() => setIsUploadDialogOpen(true)}>Upload Run</Button>
+      </header>
+      <main className="flex-1 p-4 overflow-y-auto">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          {filteredRuns.map((run) => {
+            const athlete = athletes.find((a) => a.athlete_id === run.athlete_id);
+            const event = events.find((e) => e.event_id === run.event_id);
+            return <RunCard key={run.run_id} run={run} athlete={athlete} event={event} />;
+          })}
+        </div>
+      </main>
+      <UploadDialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen} />
     </div>
   );
 }

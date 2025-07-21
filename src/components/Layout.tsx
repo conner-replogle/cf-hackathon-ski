@@ -1,10 +1,5 @@
 import { Outlet, Link } from "react-router-dom";
-import {
-  NavigationMenu,
-  NavigationMenuList,
-  NavigationMenuItem,
-  NavigationMenuLink,
-} from "@/components/ui/navigation-menu";
+
 import Logo from "@/assets/generated-image.png";
 
 export default function Layout() {
@@ -17,23 +12,6 @@ export default function Layout() {
           </Link>
         </div>
         <h1 className="text-foreground">Ski Video Upload & Player</h1>
-        <NavigationMenu>
-          <NavigationMenuList>
-            <NavigationMenuItem>
-              <Link to="/">
-                <NavigationMenuLink
-                  className={
-                    location.pathname === "/"
-                      ? "bg-accent text-accent-foreground"
-                      : ""
-                  }
-                >
-                  Home
-                </NavigationMenuLink>
-              </Link>
-            </NavigationMenuItem>
-          </NavigationMenuList>
-        </NavigationMenu>
       </header>
       <main className="flex-1 w-full p-4">
         <Outlet />
