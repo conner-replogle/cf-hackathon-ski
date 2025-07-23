@@ -17,3 +17,5 @@ export const turns = [
   { label: "Turn 3", value: "3" },
   { label: "Turn 4", value: "4" },
 ];
+
+export const athletes = [{ label: "Lebron james", value: "lbj" }];

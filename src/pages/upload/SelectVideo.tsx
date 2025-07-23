@@ -1,16 +1,34 @@
-import { FileUp } from "lucide-react";
-import { Form, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import Layout from "./layout";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
-import Combobox from "@/components/ui/combo-box";
-import { trails, turns } from "./mock";
 import { Button } from "@/components/ui/button";
+import { FilePond, registerPlugin } from "react-filepond";
+import "filepond/dist/filepond.min.css";
+import Combobox from "@/components/ui/combo-box";
+import { athletes } from "./mock";
+// @ts-ignore
+import FilePondPluginMediaPreview from "filepond-plugin-media-preview";
+import "filepond-plugin-media-preview/dist/filepond-plugin-media-preview.min.css";
 
-const FormSchema = z.object({});
+registerPlugin(FilePondPluginMediaPreview);
+
+const FormSchema = z.object({
+  video: z.instanceof(File),
+  athlete: z.string({
+    required_error: "Please select an athlete.",
+  }),
+});
 
 export default function SelectVideoPage() {
   const [searchParams] = useSearchParams();
@@ -29,32 +47,56 @@ export default function SelectVideoPage() {
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
   });
+
   function onSubmit(data: z.infer<typeof FormSchema>) {
-    // navigate(
-    //   `/upload/video?event=${searchParams.get("event")}&trail=${data.trail}&turn=${data.turn}`,
-    // );
+    console.log("form data", data);
+    form.reset();
   }
   return (
     <Layout description="Finally upload a video and tag an athlete">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          {/* <FormField */}
-          {/*   control={form.control} */}
-          {/*   name="trail" */}
-          {/*   render={({ field }) => ( */}
-          {/*     <FormItem className="flex flex-col"> */}
-          {/*       <FormLabel>Trail</FormLabel> */}
-          {/*       <Combobox */}
-          {/*         data={trails} */}
-          {/*         value={field.value} */}
-          {/*         onSelect={(val) => form.setValue("trail", val)} */}
-          {/*         itemLabel="trail" */}
-          {/*       /> */}
-          {/*     </FormItem> */}
-          {/*   )} */}
-          {/* /> */}
+          <FormField
+            control={form.control}
+            name="video"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Video</FormLabel>
+                <FormControl>
+                  <FilePond
+                    files={field.value && [field.value]}
+                    onupdatefiles={(files) => {
+                      if (files) {
+                        form.setValue("video", files[0].file as File);
+                      }
+                    }}
+                    allowMultiple={false}
+                    name="files"
+                    labelIdle='Drag & Drop videos or <span class="filepond--label-action">Click Here</span>'
+                    credits={false}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="athlete"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>Trail</FormLabel>
+                <Combobox
+                  data={athletes}
+                  value={field.value}
+                  onSelect={(val) => form.setValue("athlete", val)}
+                  itemLabel="athlete"
+                />
+              </FormItem>
+            )}
+          />
           <Button type="submit" size="lg" className="w-full">
-            Submit
+            Upload
           </Button>
           <Button
             type="button"
