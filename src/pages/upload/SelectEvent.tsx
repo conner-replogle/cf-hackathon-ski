@@ -5,7 +5,13 @@ import { events } from "./mock";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import {
+  Form,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+} from "@/components/ui/form";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Combobox from "@/components/ui/combo-box";
 
@@ -44,6 +50,10 @@ export default function SelectEventPage() {
                   onSelect={(val) => form.setValue("event", val)}
                   itemLabel="event"
                 />
+                <FormDescription>
+                  Don't see an event you're looking for? Tell an admin to create
+                  one.
+                </FormDescription>
               </FormItem>
             )}
           />

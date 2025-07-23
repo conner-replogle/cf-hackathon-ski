@@ -8,20 +8,20 @@ export default function HomePage() {
       <div className="flex space-y-4 flex-col pt-8 max-w-3xl mx-auto">
         <Button asChild className="w-full" size="xl">
           <Link to="/upload/event">
-            <FileUp />
+            <FileUp className="size-6" />
             Upload Videos
           </Link>
         </Button>
         <Button asChild className="w-full" size="xl">
           <Link to="/watch">
-            <Film />
+            <Film className="size-6" />
             Watch Videos
           </Link>
         </Button>
         <hr />
         <Button asChild variant="secondary" className="w-full" size="xl">
           <Link to="/admin">
-            <ShieldUser />
+            <ShieldUser className="size-6" />
             Admin Stuff
           </Link>
         </Button>
