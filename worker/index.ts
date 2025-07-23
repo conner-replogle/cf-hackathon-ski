@@ -9,30 +9,7 @@ import type {
   Run,
   Clip,
   EventWithRelations,
-  RouteWithTurns,
-  RunWithDetails,
-  EventsResponse,
-  AthletesResponse,
-  RoutesResponse,
-  TurnsResponse,
-  RunsResponse,
-  ClipsResponse,
-  EventResponse,
-  AthleteResponse,
-  RouteResponse,
-  TurnResponse,
-  RunResponse,
-  ClipResponse,
-  EventWithRelationsResponse,
-  RouteWithTurnsResponse,
-  RunsWithDetailsResponse,
-  CreateEventRequest,
-  CreateAthleteRequest,
-  CreateRouteRequest,
-  CreateTurnRequest,
-  CreateRunRequest,
-  CreateClipRequest,
-  CreateEventAthletesRequest
+
 } from "./types";
 
 type Bindings = {
