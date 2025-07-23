@@ -5,8 +5,14 @@ import { events } from "./mock";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, FormField, FormItem, FormLabel } from "@/components/ui/form";
-import { useNavigate } from "react-router-dom";
+import {
+  Form,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+} from "@/components/ui/form";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Combobox from "@/components/ui/combo-box";
 
 const FormSchema = z.object({
@@ -16,8 +22,12 @@ const FormSchema = z.object({
 });
 
 export default function SelectEventPage() {
+  const [searchParams] = useSearchParams();
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
+    defaultValues: {
+      event: searchParams.get("event") || undefined,
+    },
   });
   const navigate = useNavigate();
 
@@ -40,6 +50,10 @@ export default function SelectEventPage() {
                   onSelect={(val) => form.setValue("event", val)}
                   itemLabel="event"
                 />
+                <FormDescription>
+                  Don't see an event you're looking for? Tell an admin to create
+                  one.
+                </FormDescription>
               </FormItem>
             )}
           />

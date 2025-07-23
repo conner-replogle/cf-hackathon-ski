@@ -24,7 +24,7 @@ import "filepond-plugin-media-preview/dist/filepond-plugin-media-preview.min.css
 registerPlugin(FilePondPluginMediaPreview);
 
 const FormSchema = z.object({
-  video: z.instanceof(File),
+  video: z.instanceof(File, { message: "Please upload a video" }),
   athlete: z.string({
     required_error: "Please select an athlete.",
   }),
@@ -68,6 +68,7 @@ export default function SelectVideoPage() {
                     onupdatefiles={(files) => {
                       if (files) {
                         form.setValue("video", files[0].file as File);
+                        form.clearErrors();
                       }
                     }}
                     allowMultiple={false}
@@ -85,7 +86,7 @@ export default function SelectVideoPage() {
             name="athlete"
             render={({ field }) => (
               <FormItem className="flex flex-col">
-                <FormLabel>Trail</FormLabel>
+                <FormLabel>Athlete</FormLabel>
                 <Combobox
                   data={athletes}
                   value={field.value}
@@ -104,9 +105,7 @@ export default function SelectVideoPage() {
             className="w-full"
             variant="secondary"
             onClick={() =>
-              navigate(
-                `/upload/trailandturn?event=${searchParams.get("event")}`,
-              )
+              navigate(`/upload/trailandturn?${searchParams.toString()}`)
             }
           >
             Back
