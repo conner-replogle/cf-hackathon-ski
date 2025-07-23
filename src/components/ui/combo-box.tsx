@@ -51,7 +51,7 @@ export default function Combobox({ data, value, onSelect, itemLabel }: Props) {
           </Button>
         </FormControl>
       </PopoverTrigger>
-      <PopoverContent className="p-0">
+      <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]">
         <Command>
           <CommandInput
             placeholder={`Search ${itemLabel}s...`}
