@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { FileUp } from "lucide-react";
 import Layout from "./layout";
-import { events } from "./mock";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,9 +13,11 @@ import {
 } from "@/components/ui/form";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Combobox from "@/components/ui/combo-box";
+import { useEvents } from "@/services/api";
+import { useMemo } from "react";
 
 const FormSchema = z.object({
-  event: z.string({
+  event: z.number({
     required_error: "Please select an event.",
   }),
 });
@@ -26,10 +27,23 @@ export default function SelectEventPage() {
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
-      event: searchParams.get("event") || undefined,
+      event: parseInt(searchParams?.get("event") || "") || undefined,
     },
   });
   const navigate = useNavigate();
+
+  const { events } = useEvents();
+
+  const data = useMemo(
+    () =>
+      events.data
+        ? events.data.map((event) => ({
+            label: event.event_name,
+            value: event.id,
+          }))
+        : [],
+    [events.data],
+  );
 
   function onSubmit(data: z.infer<typeof FormSchema>) {
     navigate(`/upload/trailandturn?event=${data.event}`);
@@ -45,9 +59,9 @@ export default function SelectEventPage() {
               <FormItem className="flex flex-col">
                 <FormLabel>Event</FormLabel>
                 <Combobox
-                  data={events}
+                  data={data}
                   value={field.value}
-                  onSelect={(val) => form.setValue("event", val)}
+                  onSelect={(val) => form.setValue("event", val as number)}
                   itemLabel="event"
                 />
                 <FormDescription>
