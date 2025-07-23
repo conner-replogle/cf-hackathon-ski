@@ -340,6 +340,7 @@ const turnsApp = new Hono<{ Bindings: Bindings }>()
 
 // Runs & Clips
 const runsApp = new Hono<{ Bindings: Bindings }>()
+  
   .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
     const { id: runId } = c.req.valid("param");
     const run = await c.env.DB.prepare("SELECT * FROM Runs WHERE id = ?")
@@ -379,6 +380,8 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
       return c.json(newRun, 201);
     }
   )
+
+
   .delete(
     "/:id",
     zValidator("param", z.object({ id: z.string() })),
@@ -499,11 +502,11 @@ const app = new Hono<{ Bindings: Bindings }>()
       500
     );
   })
-  .route("/events", eventsApp)
-  .route("/athletes", athletesApp)
-  .route("/routes", routesApp)
-  .route("/turns", turnsApp)
-  .route("/runs", runsApp);
+  .route("/api/events", eventsApp)
+  .route("/api/athletes", athletesApp)
+  .route("/api/routes", routesApp)
+  .route("/api/turns", turnsApp)
+  .route("/api/runs", runsApp);
 
 export type AppType = typeof app;
 export default app;
