@@ -8,14 +8,14 @@ CREATE TABLE Athletes (
     id INTEGER PRIMARY KEY,
     event_id INTEGER NOT NULL,
     athlete_name TEXT NOT NULL,
-    FOREIGN KEY (event_id) references Events(id)
+    FOREIGN KEY (event_id) REFERENCES Events(id) ON DELETE CASCADE
 );
 
 CREATE TABLE Routes (
     id INTEGER PRIMARY KEY,
     event_id INTEGER NOT NULL,
     route_name TEXT NOT NULL UNIQUE,
-    FOREIGN KEY (event_id) references Events(id)
+    FOREIGN KEY (event_id) REFERENCES Events(id) ON DELETE CASCADE
 );
 
 CREATE TABLE Turns (
@@ -23,10 +23,10 @@ CREATE TABLE Turns (
     route_id INTEGER NOT NULL,
     turn_order INTEGER NOT NULL,
     turn_name TEXT NOT NULL,
-    latitude REAL,
-    longitude REAL,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
     UNIQUE(route_id, turn_order, turn_name),
-    FOREIGN KEY (route_id) references Routes(id)
+    FOREIGN KEY (route_id) REFERENCES Routes(id) ON DELETE CASCADE
 );
 
 CREATE TABLE Runs (
@@ -34,16 +34,16 @@ CREATE TABLE Runs (
     route_id INTEGER NOT NULL,
     athlete_id INTEGER NOT NULL,
     run_order INTEGER NOT NULL,
-    FOREIGN KEY (athlete_id) references Athletes(id),
+    FOREIGN KEY (athlete_id) REFERENCES Athletes(id) ON DELETE CASCADE,
     UNIQUE (route_id, athlete_id, run_order),
-    FOREIGN KEY (route_id) references Routes(id)
+    FOREIGN KEY (route_id) REFERENCES Routes(id) ON DELETE CASCADE
 );
 
 CREATE TABLE Clips (
     turn_id INTEGER,
     run_id INTEGER, 
     clip_r2 TEXT,
-    FOREIGN KEY (turn_id) references Turns(id),
-    FOREIGN KEY (run_id) references Runs(id),
+    FOREIGN KEY (turn_id) REFERENCES Turns(id) ON DELETE CASCADE,
+    FOREIGN KEY (run_id) REFERENCES Runs(id) ON DELETE CASCADE,
     PRIMARY KEY (turn_id, run_id)
 );
