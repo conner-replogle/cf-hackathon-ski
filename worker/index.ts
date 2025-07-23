@@ -17,7 +17,7 @@ const TurnSchema = z.object({
 const eventsApp = new Hono<{ Bindings: Bindings }>()
   .get("/", async (c) => {
     const { results } = await c.env.DB.prepare("SELECT * FROM Events").all();
-    return c.json({ events: results }, 200);
+    return c.json(results, 200);
   })
   .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
     const { id: eventId } = c.req.valid("param");
@@ -51,6 +51,7 @@ const eventsApp = new Hono<{ Bindings: Bindings }>()
       200
     );
   })
+  
   .post(
     "/",
     zValidator(
@@ -178,6 +179,10 @@ const eventsApp = new Hono<{ Bindings: Bindings }>()
 
 // Athletes
 const athletesApp = new Hono<{ Bindings: Bindings }>()
+  .get("/", async (c) => {
+    const { results } = await c.env.DB.prepare("SELECT * FROM Athletes").all();
+    return c.json(results, 200);
+  })
   .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
     const { id: athleteId } = c.req.valid("param");
     const athlete = await c.env.DB.prepare(
@@ -223,6 +228,10 @@ const athletesApp = new Hono<{ Bindings: Bindings }>()
 
 // Routes
 const routesApp = new Hono<{ Bindings: Bindings }>()
+  .get("/", async (c) => {
+    const { results } = await c.env.DB.prepare("SELECT * FROM Routes").all();
+    return c.json(results, 200);
+  })
   .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
     const { id: routeId } = c.req.valid("param");
     const routePromise = c.env.DB.prepare("SELECT * FROM Routes WHERE id = ?")
@@ -281,6 +290,10 @@ const routesApp = new Hono<{ Bindings: Bindings }>()
 
 // Turns
 const turnsApp = new Hono<{ Bindings: Bindings }>()
+  .get("/", async (c) => {
+    const { results } = await c.env.DB.prepare("SELECT * FROM Turns").all();
+    return c.json(results, 200);
+  })
   .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
     const { id: turnId } = c.req.valid("param");
     const turn = await c.env.DB.prepare("SELECT * FROM Turns WHERE id = ?")
@@ -340,7 +353,35 @@ const turnsApp = new Hono<{ Bindings: Bindings }>()
 
 // Runs & Clips
 const runsApp = new Hono<{ Bindings: Bindings }>()
-  
+  .get("/", async (c) => {
+    const { results } = await c.env.DB.prepare("SELECT * FROM Runs").all();
+    return c.json(results, 200);
+  })
+  .get("/event/:eventId", zValidator("param", z.object({ eventId: z.string() })), async (c) => {
+    const { eventId } = c.req.valid("param");
+    
+    // First verify the event exists
+    const event = await c.env.DB.prepare("SELECT id FROM Events WHERE id = ?")
+      .bind(eventId)
+      .first();
+    if (!event) {
+      return c.json({ error: "Event not found" }, 404);
+    }
+    
+    // Get runs for the event through routes
+    const { results } = await c.env.DB.prepare(`
+      SELECT r.*, rt.route_name, a.athlete_name 
+      FROM Runs r
+      JOIN Routes rt ON r.route_id = rt.id
+      JOIN Athletes a ON r.athlete_id = a.id
+      WHERE rt.event_id = ?
+      ORDER BY r.run_order
+    `)
+      .bind(eventId)
+      .all();
+    
+    return c.json(results, 200);
+  })
   .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
     const { id: runId } = c.req.valid("param");
     const run = await c.env.DB.prepare("SELECT * FROM Runs WHERE id = ?")
