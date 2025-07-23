@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 
-// --- Type Definitions ---
 type Bindings = {
   DB: D1Database;
   VIDEOS: R2Bucket;
