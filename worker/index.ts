@@ -1,340 +1,509 @@
-import { Hono } from 'hono';
+import { Hono } from "hono";
+import { z } from "zod";
+import { zValidator } from "@hono/zod-validator";
 
-// Define the bindings for D1 and R2
 type Bindings = {
   DB: D1Database;
   VIDEOS: R2Bucket;
-  R2_PUBLIC_URL: string;
 };
 
-const app = new Hono<{ Bindings: Bindings }>();
-
-// --- Athlete Endpoints ---
-
-/**
- * Creates a new athlete.
- * @body { athlete_name: string }
- * @returns { success: boolean, message: string }
- */
-app.post('/api/athletes', async (c) => {
-  try {
-    const { athlete_name } = await c.req.json();
-    if (!athlete_name) {
-      return c.json({ success: false, message: 'Athlete name is required' }, 400);
-    }
-
-    await c.env.DB.prepare('INSERT INTO Athletes (athlete_name) VALUES (?)')
-      .bind(athlete_name)
-      .run();
-
-    return c.json({ success: true, message: 'Athlete created successfully' });
-  } catch (e: any) {
-    if (e.message?.includes('UNIQUE constraint failed')) {
-      return c.json({ success: false, message: 'Athlete name already exists' }, 409);
-    }
-    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-  }
+const TurnSchema = z.object({
+  turn_name: z.string().min(1),
+  latitude: z.number(),
+  longitude: z.number(),
 });
 
-/**
- * Lists all athletes.
- * @returns { success: boolean, athletes: Array<{ athlete_id: number, athlete_name: string }> }
- */
-app.get('/api/athletes', async (c) => {
-  try {
-    const { results } = await c.env.DB.prepare('SELECT * FROM Athletes').all();
-    return c.json({ success: true, athletes: results });
-  } catch (e: any) {
-    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-  }
-});
-
-// --- Event Endpoints ---
-
-/**
- * Creates a new event.
- * @body { event_name: string }
- * @returns { success: boolean, message: string }
- */
-app.post('/api/events', async (c) => {
-  try {
-    const { event_name } = await c.req.json();
-    if (!event_name) {
-      return c.json({ success: false, message: 'Event name is required' }, 400);
+// Events
+const eventsApp = new Hono<{ Bindings: Bindings }>()
+  .get("/", async (c) => {
+    const { results } = await c.env.DB.prepare("SELECT * FROM Events").all();
+    return c.json({ events: results }, 200);
+  })
+  .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
+    const { id: eventId } = c.req.valid("param");
+    const eventPromise = c.env.DB.prepare("SELECT * FROM Events WHERE id = ?")
+      .bind(eventId)
+      .first();
+    const athletesPromise = c.env.DB.prepare(
+      "SELECT * FROM Athletes WHERE event_id = ?"
+    )
+      .bind(eventId)
+      .all();
+    const routesPromise = c.env.DB.prepare(
+      "SELECT * FROM Routes WHERE event_id = ?"
+    )
+      .bind(eventId)
+      .all();
+    const [event, athletesResult, routesResult] = await Promise.all([
+      eventPromise,
+      athletesPromise,
+      routesPromise,
+    ]);
+    if (!event) {
+      return c.json({ error: "Event not found" }, 404);
     }
-
-    await c.env.DB.prepare('INSERT INTO Event (event_name) VALUES (?)')
-      .bind(event_name)
-      .run();
-
-    return c.json({ success: true, message: 'Event created successfully' });
-  } catch (e: any) {
-    if (e.message?.includes('UNIQUE constraint failed')) {
-      return c.json({ success: false, message: 'Event name already exists' }, 409);
-    }
-    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-  }
-});
-
-/**
- * Lists all events.
- * @returns { success: boolean, events: Array<{ event_id: number, event_name: string }> }
- */
-app.get('/api/events', async (c) => {
-  try {
-    const { results } = await c.env.DB.prepare('SELECT * FROM Event').all();
-    return c.json({ success: true, events: results });
-  } catch (e: any) {
-    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-  }
-});
-
-// --- Run Endpoints ---
-
-/**
- * Creates a new run.
- * @body { run_name: string, event_id: number, athlete_id: number }
- * @returns { success: boolean, message: string }
- */
-app.post('/api/runs', async (c) => {
-  try {
-    const { run_name, event_id, athlete_id } = await c.req.json();
-    if (!run_name || !event_id || !athlete_id) {
-      return c.json({ success: false, message: 'Missing required fields' }, 400);
-    }
-
-    await c.env.DB.prepare('INSERT INTO Run (run_name, event_id, athlete_id) VALUES (?, ?, ?)')
-      .bind(run_name, event_id, athlete_id)
-      .run();
-
-    return c.json({ success: true, message: 'Run created successfully' });
-  } catch (e: any) {
-    if (e.message?.includes('UNIQUE constraint failed')) {
-      return c.json({ success: false, message: 'Run name already exists' }, 409);
-    }
-    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-  }
-});
-
-/**
- * Lists all runs for a given event.
- * @param { eventId: number }
- * @returns { success: boolean, runs: Array<any> }
- */
-app.get('/api/events/:eventId/runs', async (c) => {
-    try {
-        const eventId = c.req.param('eventId');
-        const { results } = await c.env.DB.prepare('SELECT * FROM Run WHERE event_id = ?')
-            .bind(eventId)
-            .all();
-        return c.json({ success: true, runs: results });
-    } catch (e: any) {
-        return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-    }
-});
-
-// --- Turn Endpoints ---
-
-/**
- * Creates a new turn.
- * @body { turn_name: string, event_id: number, athlete_id: number, run_id: number, latitude?: number, longitude?: number }
- * @returns { success: boolean, message: string }
- */
-app.post('/api/turns', async (c) => {
-  try {
-    // 1. Destructure all fields from the body, including optional latitude and longitude
-    const { turn_name, event_id, athlete_id, run_id, latitude, longitude } = await c.req.json();
-
-    // 2. Validate required fields
-    if (!turn_name || !event_id || !athlete_id || !run_id) {
-        return c.json({ success: false, message: 'Missing required fields: turn_name, event_id, athlete_id, run_id' }, 400);
-    }
-
-    // 3. Prepare the INSERT statement with latitude and longitude columns
-    const stmt = c.env.DB.prepare(
-        'INSERT INTO Turns (turn_name, event_id, athlete_id, run_id, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?)'
-    );
-
-    // 4. Bind values, using null for latitude/longitude if they are not provided
-    await stmt.bind(
-        turn_name, 
-        event_id, 
-        athlete_id, 
-        run_id, 
-        latitude ?? null, // Use nullish coalescing operator to provide null if undefined
-        longitude ?? null // Use nullish coalescing operator to provide null if undefined
-    ).run();
-
-    return c.json({ success: true, message: 'Turn created successfully' });
-  } catch (e: any) {
-    if (e.message?.includes('UNIQUE constraint failed')) {
-        return c.json({ success: false, message: 'Turn name already exists' }, 409);
-    }
-    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-  }
-});
-
-app.get('/api/runs', async (c) => {
-  try {
-    const { results } = await c.env.DB.prepare('SELECT * FROM Run').all();
-    return c.json({ success: true, runs: results });
-  } catch (e: any) {
-    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-  }
-})
-
-
-app.get('/api/runs/:runId', async (c) => {
-  try {
-    const runId = c.req.param('runId');
-
-    const stmt = c.env.DB.prepare(`
-      SELECT
-        r.run_id,
-        r.run_name,
-        r.event_id,
-        a.athlete_id,
-        a.athlete_name
-      FROM Run r
-      JOIN Athletes a ON r.athlete_id = a.athlete_id
-      WHERE r.run_id = ?
-    `);
-
-    const result: any = await stmt.bind(runId).first();
-
-    if (!result) {
-      return c.json({ success: false, message: 'Run not found' }, 404);
-    }
-
-    const run = {
-      run_id: result.run_id,
-      run_name: result.run_name,
-      event_id: result.event_id,
-      athlete: {
-        athlete_id: result.athlete_id,
-        athlete_name: result.athlete_name,
+    return c.json(
+      {
+        ...event,
+        athletes: athletesResult.results,
+        routes: routesResult.results,
       },
-    };
-
-    return c.json({ success: true, run: run });
-  } catch (e: any) {
-    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-  }
-})
-/**
- * Lists all turns for a given run.
- * @param { runId: number }
- * @returns { success: boolean, turns: Array<any> }
- */
-app.get('/api/runs/:runId/turns', async (c) => {
-  try {
-      const runId = c.req.param('runId');
-      const { results } = await c.env.DB.prepare('SELECT * FROM Turns WHERE run_id = ?')
-          .bind(runId)
-          .all();
-      return c.json({ success: true, turns: results });
-  } catch (e: any) {
-      return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-  }
-});
-
-// --- Video Upload Endpoint ---
-
-/**
- * Uploads a video for a specific turn and updates its R2 link.
- * @param { turnId: number }
- * @body { video: File }
- * @returns { success: boolean, message: string, r2_url: string }
- */
-app.post('/api/turns/:turnId/upload', async (c) => {
-      const turnId = c.req.param('turnId');
-      const body = await c.req.parseBody();
-      const videoFile = body['video'] as File;
-
-      if (!videoFile) {
-          return c.json({ success: false, message: 'Video file is required' }, 400);
+      200
+    );
+  })
+  .post(
+    "/",
+    zValidator(
+      "json",
+      z.object({
+        event_name: z.string().min(1),
+        event_location: z.string().min(1),
+      })
+    ),
+    async (c) => {
+      const { event_name, event_location } = c.req.valid("json");
+      const stmt = c.env.DB.prepare(
+        "INSERT INTO Events (event_name, event_location) VALUES (?, ?) RETURNING *"
+      );
+      const newEvent = await stmt.bind(event_name, event_location).first();
+      return c.json(newEvent, 201);
+    }
+  )
+  .post(
+    "/:id/athletes",
+    zValidator("param", z.object({ id: z.string() })),
+    zValidator(
+      "json",
+      z.object({ athletes: z.array(z.string().min(1)).min(1) })
+    ),
+    async (c) => {
+      const { id: eventId } = c.req.valid("param");
+      const { athletes } = c.req.valid("json");
+      const event = await c.env.DB.prepare("SELECT id FROM Events WHERE id = ?")
+        .bind(eventId)
+        .first();
+      if (!event) {
+        return c.json({ error: "Event not found" }, 400);
       }
-
-      const turn = await c.env.DB.prepare('SELECT * FROM Turns WHERE turn_id = ?').bind(turnId).first();
-      if (!turn) {
-          return c.json({ success: false, message: 'Turn not found' }, 404);
+      const stmt = c.env.DB.prepare(
+        "INSERT INTO Athletes (event_id, athlete_name) VALUES (?, ?) RETURNING *"
+      );
+      const statements = athletes.map((name) => stmt.bind(eventId, name));
+      const results = await c.env.DB.batch(statements);
+      return c.json(results, 201);
+    }
+  )
+  .post(
+    "/:id/routes",
+    zValidator("param", z.object({ id: z.string() })),
+    zValidator(
+      "json",
+      z.object({
+        route_name: z.string().min(1),
+        turns: z.array(TurnSchema).min(1),
+      })
+    ),
+    async (c) => {
+      const { id: eventId } = c.req.valid("param");
+      const { route_name, turns } = c.req.valid("json");
+      const event = await c.env.DB.prepare("SELECT id FROM Events WHERE id = ?")
+        .bind(eventId)
+        .first();
+      if (!event) {
+        return c.json({ error: "Event not found" }, 404);
       }
+      const routeStmt = c.env.DB.prepare(
+        "INSERT INTO Routes (event_id, route_name) VALUES (?, ?) RETURNING *"
+      );
+      const newRoute = await routeStmt.bind(eventId, route_name).first();
+      if (!newRoute) {
+        return c.json({ error: "Failed to create route" }, 500);
+      }
+      const turnInsertStmt = c.env.DB.prepare(
+        "INSERT INTO Turns (route_id, turn_order, turn_name, latitude, longitude) VALUES (?, ?, ?, ?, ?) RETURNING *"
+      );
+      const turnStatements = turns.map((turn, index) =>
+        turnInsertStmt.bind(
+          newRoute.id,
+          index,
+          turn.turn_name,
+          turn.latitude,
+          turn.longitude
+        )
+      );
+      const turnsResults = (await c.env.DB.batch(turnStatements)).flatMap(
+        (t) => t.results
+      );
+      return c.json({ route: newRoute, turns: turnsResults }, 201);
+    }
+  )
+  .put(
+    "/:id",
+    zValidator("param", z.object({ id: z.string() })),
+    zValidator(
+      "json",
+      z.object({
+        event_name: z.string().min(1),
+        event_location: z.string().min(1),
+      })
+    ),
+    async (c) => {
+      const { id: eventId } = c.req.valid("param");
+      const { event_name, event_location } = c.req.valid("json");
+      const stmt = c.env.DB.prepare(
+        "UPDATE Events SET event_name = ?, event_location = ? WHERE id = ? RETURNING *"
+      );
+      const updatedEvent = await stmt
+        .bind(event_name, event_location, eventId)
+        .first();
+      if (!updatedEvent) {
+        return c.json({ error: "Event not found" }, 404);
+      }
+      return c.json(updatedEvent, 200);
+    }
+  )
+  .delete(
+    "/:id",
+    zValidator("param", z.object({ id: z.string() })),
+    async (c) => {
+      const { id: eventId } = c.req.valid("param");
+      const stmt = c.env.DB.prepare("DELETE FROM Events WHERE id = ?");
+      const { meta } = await stmt.bind(eventId).run();
+      if (meta.changes === 0) {
+        return c.json({ error: "Event not found" }, 404);
+      }
+      return c.body(null, 204);
+    }
+  );
 
-      const res = await c.env.VIDEOS.put(videoFile.name, videoFile.stream(), {
-          httpMetadata: { contentType: videoFile.type },
+// Athletes
+const athletesApp = new Hono<{ Bindings: Bindings }>()
+  .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
+    const { id: athleteId } = c.req.valid("param");
+    const athlete = await c.env.DB.prepare(
+      "SELECT * FROM Athletes WHERE id = ?"
+    )
+      .bind(athleteId)
+      .first();
+    if (!athlete) {
+      return c.json({ error: "Athlete not found" }, 404);
+    }
+    return c.json(athlete, 200);
+  })
+  .put(
+    "/:id",
+    zValidator("param", z.object({ id: z.string() })),
+    zValidator("json", z.object({ athlete_name: z.string().min(1) })),
+    async (c) => {
+      const { id: athleteId } = c.req.valid("param");
+      const { athlete_name } = c.req.valid("json");
+      const stmt = c.env.DB.prepare(
+        "UPDATE Athletes SET athlete_name = ? WHERE id = ? RETURNING *"
+      );
+      const updatedAthlete = await stmt.bind(athlete_name, athleteId).first();
+      if (!updatedAthlete) {
+        return c.json({ error: "Athlete not found" }, 404);
+      }
+      return c.json(updatedAthlete, 200);
+    }
+  )
+  .delete(
+    "/:id",
+    zValidator("param", z.object({ id: z.string() })),
+    async (c) => {
+      const { id: athleteId } = c.req.valid("param");
+      const stmt = c.env.DB.prepare("DELETE FROM Athletes WHERE id = ?");
+      const { meta } = await stmt.bind(athleteId).run();
+      if (meta.changes === 0) {
+        return c.json({ error: "Athlete not found" }, 404);
+      }
+      return c.body(null, 204);
+    }
+  );
+
+// Routes
+const routesApp = new Hono<{ Bindings: Bindings }>()
+  .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
+    const { id: routeId } = c.req.valid("param");
+    const routePromise = c.env.DB.prepare("SELECT * FROM Routes WHERE id = ?")
+      .bind(routeId)
+      .first();
+    const turnsPromise = c.env.DB.prepare(
+      "SELECT * FROM Turns WHERE route_id = ? ORDER BY turn_order"
+    )
+      .bind(routeId)
+      .all();
+    const [route, turnsResult] = await Promise.all([
+      routePromise,
+      turnsPromise,
+    ]);
+    if (!route) {
+      return c.json({ error: "Route not found" }, 404);
+    }
+    return c.json(
+      {
+        ...route,
+        turns: turnsResult.results,
+      },
+      200
+    );
+  })
+  .put(
+    "/:id",
+    zValidator("param", z.object({ id: z.string() })),
+    zValidator("json", z.object({ route_name: z.string().min(1) })),
+    async (c) => {
+      const { id: routeId } = c.req.valid("param");
+      const { route_name } = c.req.valid("json");
+      const stmt = c.env.DB.prepare(
+        "UPDATE Routes SET route_name = ? WHERE id = ? RETURNING *"
+      );
+      const updatedRoute = await stmt.bind(route_name, routeId).first();
+      if (!updatedRoute) {
+        return c.json({ error: "Route not found" }, 404);
+      }
+      return c.json(updatedRoute, 200);
+    }
+  )
+  .delete(
+    "/:id",
+    zValidator("param", z.object({ id: z.string() })),
+    async (c) => {
+      const { id: routeId } = c.req.valid("param");
+      const stmt = c.env.DB.prepare("DELETE FROM Routes WHERE id = ?");
+      const { meta } = await stmt.bind(routeId).run();
+      if (meta.changes === 0) {
+        return c.json({ error: "Route not found" }, 404);
+      }
+      return c.body(null, 204);
+    }
+  );
+
+// Turns
+const turnsApp = new Hono<{ Bindings: Bindings }>()
+  .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
+    const { id: turnId } = c.req.valid("param");
+    const turn = await c.env.DB.prepare("SELECT * FROM Turns WHERE id = ?")
+      .bind(turnId)
+      .first();
+    if (!turn) {
+      return c.json({ error: "Turn not found" }, 404);
+    }
+    return c.json(turn, 200);
+  })
+  .put(
+    "/:id",
+    zValidator("param", z.object({ id: z.string() })),
+    zValidator(
+      "json",
+      z
+        .object({
+          turn_name: z.string().optional(),
+          turn_order: z.number().optional(),
+          latitude: z.number().optional(),
+          longitude: z.number().optional(),
+        })
+        .refine(
+          (data) => Object.keys(data).length > 0,
+          "At least one field to update is required."
+        )
+    ),
+    async (c) => {
+      const { id: turnId } = c.req.valid("param");
+      const validData = c.req.valid("json");
+      const updateFields = Object.keys(validData);
+      const bindings = [...Object.values(validData), turnId];
+      const sql = `UPDATE Turns SET ${updateFields
+        .map((field) => `${field} = ?`)
+        .join(", ")} WHERE id = ? RETURNING *`;
+      const stmt = c.env.DB.prepare(sql);
+      const updatedTurn = await stmt.bind(...bindings).first();
+      if (!updatedTurn) {
+        return c.json({ error: "Turn not found" }, 404);
+      }
+      return c.json(updatedTurn, 200);
+    }
+  )
+  .delete(
+    "/:id",
+    zValidator("param", z.object({ id: z.string() })),
+    async (c) => {
+      const { id: turnId } = c.req.valid("param");
+      const stmt = c.env.DB.prepare("DELETE FROM Turns WHERE id = ?");
+      const { meta } = await stmt.bind(turnId).run();
+      if (meta.changes === 0) {
+        return c.json({ error: "Turn not found" }, 404);
+      }
+      return c.body(null, 204);
+    }
+  );
+
+// Runs & Clips
+const runsApp = new Hono<{ Bindings: Bindings }>()
+  .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
+    const { id: runId } = c.req.valid("param");
+    const run = await c.env.DB.prepare("SELECT * FROM Runs WHERE id = ?")
+      .bind(runId)
+      .first();
+    if (!run) {
+      return c.json({ error: "Run not found" }, 404);
+    }
+    return c.json(run, 200);
+  })
+  .post(
+    "/",
+    zValidator(
+      "json",
+      z.object({
+        route_id: z.number(),
+        athlete_id: z.number(),
+        run_order: z.number(),
+      })
+    ),
+    async (c) => {
+      const { route_id, athlete_id, run_order } = c.req.valid("json");
+      const route = await c.env.DB.prepare("SELECT id FROM Routes WHERE id = ?")
+        .bind(route_id)
+        .first();
+      if (!route) return c.json({ error: "Route not found" }, 404);
+      const athlete = await c.env.DB.prepare(
+        "SELECT id FROM Athletes WHERE id = ?"
+      )
+        .bind(athlete_id)
+        .first();
+      if (!athlete) return c.json({ error: "Athlete not found" }, 404);
+      const stmt = c.env.DB.prepare(
+        "INSERT INTO Runs (route_id, athlete_id, run_order) VALUES (?, ?, ?) RETURNING *"
+      );
+      const newRun = await stmt.bind(route_id, athlete_id, run_order).first();
+      return c.json(newRun, 201);
+    }
+  )
+  .delete(
+    "/:id",
+    zValidator("param", z.object({ id: z.string() })),
+    async (c) => {
+      const { id: runId } = c.req.valid("param");
+      const { results } = await c.env.DB.prepare(
+        "SELECT clip_r2 FROM Clips WHERE run_id = ?"
+      )
+        .bind(runId)
+        .all<{ clip_r2: string }>();
+      if (results?.length > 0) {
+        const keys = results.map((r) => r.clip_r2).filter(Boolean);
+        if (keys.length > 0) {
+          await c.env.VIDEOS.delete(keys);
+        }
+      }
+      const { meta } = await c.env.DB.prepare("DELETE FROM Runs WHERE id = ?")
+        .bind(runId)
+        .run();
+      if (meta.changes === 0) {
+        return c.json({ error: "Run not found" }, 404);
+      }
+      return c.body(null, 204);
+    }
+  )
+  .get(
+    "/:runId/turns/:turnId/clips",
+    zValidator("param", z.object({ runId: z.string(), turnId: z.string() })),
+    async (c) => {
+      const { runId, turnId } = c.req.valid("param");
+      const clip = await c.env.DB.prepare(
+        "SELECT clip_r2 FROM Clips WHERE run_id = ? AND turn_id = ?"
+      )
+        .bind(runId, turnId)
+        .first<{ clip_r2: string }>();
+      if (!clip?.clip_r2) {
+        return c.json({ error: "Clip not found" }, 404);
+      }
+      const r2Object = await c.env.VIDEOS.get(clip.clip_r2);
+      if (r2Object === null) {
+        return c.json({ error: "Clip file not found in storage" }, 404);
+      }
+      c.header("Content-Type", r2Object.httpMetadata?.contentType);
+      c.header("Content-Length", r2Object.size.toString());
+      return c.body(r2Object.body);
+    }
+  )
+  .post(
+    "/:runId/turns/:turnId/clips",
+    zValidator("param", z.object({ runId: z.string(), turnId: z.string() })),
+    zValidator("form", z.object({ video: z.instanceof(File) })),
+    async (c) => {
+      const { runId, turnId } = c.req.valid("param");
+      const { video: videoFile } = c.req.valid("form");
+      const run = await c.env.DB.prepare("SELECT id FROM Runs WHERE id = ?")
+        .bind(runId)
+        .first();
+      if (!run) return c.json({ error: "Run not found" }, 404);
+      const turn = await c.env.DB.prepare("SELECT id FROM Turns WHERE id = ?")
+        .bind(turnId)
+        .first();
+      if (!turn) return c.json({ error: "Turn not found" }, 404);
+      const r2Key = `runs/${runId}/turns/${turnId}.mp4`;
+      await c.env.VIDEOS.put(r2Key, videoFile.stream(), {
+        httpMetadata: { contentType: videoFile.type },
       });
-
-      await c.env.DB.prepare('UPDATE Turns SET r2_video_link = ? WHERE turn_id = ?')
-          .bind(res.key, turnId)
-          .run();
-
-      return c.json({ success: true, message: 'Video uploaded successfully', r2_url: res.key });
-});
-
-/**
- * Serves a video file directly from R2.
- * @param { videoId: string }
- */
-app.get('/api/videos/:videoId', async (c) => {
-  const videoId = c.req.param('videoId');
-
-  try {
-    const range = c.req.header('range');
-    const videoObject = await c.env.VIDEOS.get(videoId);
-
-    if (videoObject === null) {
-      return c.json({ success: false, message: 'Video not found' }, 404);
+      const stmt = c.env.DB.prepare(
+        "INSERT OR REPLACE INTO Clips (run_id, turn_id, clip_r2) VALUES (?, ?, ?) RETURNING *"
+      );
+      const newClip = await stmt.bind(runId, turnId, r2Key).first();
+      return c.json(newClip, 201);
     }
-
-    c.header('Accept-Ranges', 'bytes');
-    c.header('Content-Type', videoObject.httpMetadata?.contentType || 'application/octet-stream');
-    c.header('ETag', videoObject.httpEtag);
-
-    if (range) {
-      const match = /^bytes=(\d+)-(\d*)$/.exec(range);
-      if (match) {
-        const start = parseInt(match[1], 10);
-        const end = match[2] ? parseInt(match[2], 10) : videoObject.size - 1;
-
-        if (start >= videoObject.size || end >= videoObject.size) {
-          return new Response('Range Not Satisfiable', {
-            status: 416,
-            headers: { 'Content-Range': `bytes */${videoObject.size}` },
-          });
-        }
-
-        const contentLength = end - start + 1;
-        const rangedObject = await c.env.VIDEOS.get(videoId, { range: { offset: start, length: contentLength } });
-
-        if (rangedObject === null) {
-          return new Response('Range Not Satisfiable', {
-            status: 416,
-            headers: { 'Content-Range': `bytes */${videoObject.size}` },
-          });
-        }
-
-        return new Response(rangedObject.body, {
-          status: 206,
-          headers: {
-            'Content-Range': `bytes ${start}-${end}/${videoObject.size}`,
-            'Content-Length': contentLength.toString(),
-            'Content-Type': videoObject.httpMetadata?.contentType || 'application/octet-stream',
-            'Accept-Ranges': 'bytes',
-            'ETag': videoObject.httpEtag,
-          },
-        });
+  )
+  .delete(
+    "/:runId/turns/:turnId/clips",
+    zValidator("param", z.object({ runId: z.string(), turnId: z.string() })),
+    async (c) => {
+      const { runId, turnId } = c.req.valid("param");
+      const clip = await c.env.DB.prepare(
+        "SELECT clip_r2 FROM Clips WHERE run_id = ? AND turn_id = ?"
+      )
+        .bind(runId, turnId)
+        .first<{ clip_r2: string }>();
+      if (clip?.clip_r2) {
+        await c.env.VIDEOS.delete(clip.clip_r2);
       }
+      const { meta } = await c.env.DB.prepare(
+        "DELETE FROM Clips WHERE run_id = ? AND turn_id = ?"
+      )
+        .bind(runId, turnId)
+        .run();
+      if (meta.changes === 0) {
+        return c.json({ error: "Clip not found" }, 404);
+      }
+      return c.body(null, 204);
     }
+  );
 
-    // No range header, or invalid range, serve the full video
-    c.header('Content-Length', String(videoObject.size));
-    return c.body(videoObject.body, 200);
+// --- Main App ---
+const app = new Hono<{ Bindings: Bindings }>()
+  .onError((err, c) => {
+    if (
+      err instanceof Error &&
+      err.message.includes("UNIQUE constraint failed")
+    ) {
+      return c.json(
+        { error: "A resource with the provided details already exists." },
+        409
+      );
+    }
+    console.error(err);
+    return c.json(
+      {
+        error: "Internal Server Error",
+        message:
+          err instanceof Error ? err.message : "An unknown error occurred",
+      },
+      500
+    );
+  })
+  .route("/events", eventsApp)
+  .route("/athletes", athletesApp)
+  .route("/routes", routesApp)
+  .route("/turns", turnsApp)
+  .route("/runs", runsApp);
 
-  } catch (e: any) {
-    console.error('Error fetching video:', e);
-    return c.json({ success: false, message: 'An error occurred while fetching the video', error: e.message }, 500);
-  }
-});
-
-export default app;
 export type AppType = typeof app;
+export default app;
