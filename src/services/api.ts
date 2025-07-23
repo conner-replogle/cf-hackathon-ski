@@ -1,44 +1,10 @@
 import { QueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { hc, type InferRequestType, type InferResponseType } from "hono/client";
-import type { AppType } from "worker/hono-rpc";
+import type { AppType } from "worker";
 
 const client = hc<AppType>('/api')
 const queryClient = new QueryClient()
 
-function useRuns(){
-    const runs = useQuery({
-        queryKey: ['runs'],
-        queryFn: async () => {
-            const res = await client.api.runs.$get()
-            return await res.json()
-        },
-    })
-    const $post = client.api.runs.$post
-
-    const createRun = useMutation<
-        InferResponseType<typeof $post>,
-        Error,
-        InferRequestType<typeof $post>['json']
-    >({
-        mutationFn: async (run) => {
-        const res = await $post({
-            json: run,
-        })
-        return await res.json()
-        },
-        onSuccess: async () => {
-        queryClient.invalidateQueries({ queryKey: ['runs'] })
-        },
-        onError: (error) => {
-        console.log(error)
-        },
-    })
-
-    return {
-        runs,
-        createRun
-    }
-}
 
 function useEvents(){
     const events = useQuery({
@@ -74,4 +40,4 @@ function useEvents(){
 
 }
 
-export {queryClient, useRuns, useEvents}
+export {queryClient, useEvents}
