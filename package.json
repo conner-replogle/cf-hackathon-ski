@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "db-migrate":"wrangler d1 migrations apply ski-db --local"
+    "db-migrate": "wrangler d1 migrations apply ski-db --local"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.7.0",
@@ -20,6 +20,7 @@
     "@radix-ui/react-select": "^2.2.5",
     "@radix-ui/react-slot": "^1.2.3",
     "@tailwindcss/vite": "^4.1.11",
+    "@tanstack/react-query": "^5.83.0",
     "cmdk": "^1.1.1",
     "filepond": "^4.32.8",
     "filepond-plugin-media-preview": "^1.0.11",
