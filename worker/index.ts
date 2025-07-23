@@ -1,340 +1,150 @@
-import { Hono } from 'hono';
+import { Hono } from "hono";
 
-// Define the bindings for D1 and R2
 type Bindings = {
   DB: D1Database;
   VIDEOS: R2Bucket;
-  R2_PUBLIC_URL: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-// --- Athlete Endpoints ---
-
-/**
- * Creates a new athlete.
- * @body { athlete_name: string }
- * @returns { success: boolean, message: string }
- */
-app.post('/api/athletes', async (c) => {
-  try {
-    const { athlete_name } = await c.req.json();
-    if (!athlete_name) {
-      return c.json({ success: false, message: 'Athlete name is required' }, 400);
-    }
-
-    await c.env.DB.prepare('INSERT INTO Athletes (athlete_name) VALUES (?)')
-      .bind(athlete_name)
-      .run();
-
-    return c.json({ success: true, message: 'Athlete created successfully' });
-  } catch (e: any) {
-    if (e.message?.includes('UNIQUE constraint failed')) {
-      return c.json({ success: false, message: 'Athlete name already exists' }, 409);
-    }
-    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-  }
-});
-
-/**
- * Lists all athletes.
- * @returns { success: boolean, athletes: Array<{ athlete_id: number, athlete_name: string }> }
- */
-app.get('/api/athletes', async (c) => {
-  try {
-    const { results } = await c.env.DB.prepare('SELECT * FROM Athletes').all();
-    return c.json({ success: true, athletes: results });
-  } catch (e: any) {
-    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-  }
-});
-
-// --- Event Endpoints ---
-
-/**
- * Creates a new event.
- * @body { event_name: string }
- * @returns { success: boolean, message: string }
- */
-app.post('/api/events', async (c) => {
-  try {
-    const { event_name } = await c.req.json();
-    if (!event_name) {
-      return c.json({ success: false, message: 'Event name is required' }, 400);
-    }
-
-    await c.env.DB.prepare('INSERT INTO Event (event_name) VALUES (?)')
-      .bind(event_name)
-      .run();
-
-    return c.json({ success: true, message: 'Event created successfully' });
-  } catch (e: any) {
-    if (e.message?.includes('UNIQUE constraint failed')) {
-      return c.json({ success: false, message: 'Event name already exists' }, 409);
-    }
-    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-  }
-});
-
-/**
- * Lists all events.
- * @returns { success: boolean, events: Array<{ event_id: number, event_name: string }> }
- */
-app.get('/api/events', async (c) => {
-  try {
-    const { results } = await c.env.DB.prepare('SELECT * FROM Event').all();
-    return c.json({ success: true, events: results });
-  } catch (e: any) {
-    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-  }
-});
-
-// --- Run Endpoints ---
-
-/**
- * Creates a new run.
- * @body { run_name: string, event_id: number, athlete_id: number }
- * @returns { success: boolean, message: string }
- */
-app.post('/api/runs', async (c) => {
-  try {
-    const { run_name, event_id, athlete_id } = await c.req.json();
-    if (!run_name || !event_id || !athlete_id) {
-      return c.json({ success: false, message: 'Missing required fields' }, 400);
-    }
-
-    await c.env.DB.prepare('INSERT INTO Run (run_name, event_id, athlete_id) VALUES (?, ?, ?)')
-      .bind(run_name, event_id, athlete_id)
-      .run();
-
-    return c.json({ success: true, message: 'Run created successfully' });
-  } catch (e: any) {
-    if (e.message?.includes('UNIQUE constraint failed')) {
-      return c.json({ success: false, message: 'Run name already exists' }, 409);
-    }
-    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-  }
-});
-
-/**
- * Lists all runs for a given event.
- * @param { eventId: number }
- * @returns { success: boolean, runs: Array<any> }
- */
-app.get('/api/events/:eventId/runs', async (c) => {
-    try {
-        const eventId = c.req.param('eventId');
-        const { results } = await c.env.DB.prepare('SELECT * FROM Run WHERE event_id = ?')
-            .bind(eventId)
-            .all();
-        return c.json({ success: true, runs: results });
-    } catch (e: any) {
-        return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-    }
-});
-
-// --- Turn Endpoints ---
-
-/**
- * Creates a new turn.
- * @body { turn_name: string, event_id: number, athlete_id: number, run_id: number, latitude?: number, longitude?: number }
- * @returns { success: boolean, message: string }
- */
-app.post('/api/turns', async (c) => {
-  try {
-    // 1. Destructure all fields from the body, including optional latitude and longitude
-    const { turn_name, event_id, athlete_id, run_id, latitude, longitude } = await c.req.json();
-
-    // 2. Validate required fields
-    if (!turn_name || !event_id || !athlete_id || !run_id) {
-        return c.json({ success: false, message: 'Missing required fields: turn_name, event_id, athlete_id, run_id' }, 400);
-    }
-
-    // 3. Prepare the INSERT statement with latitude and longitude columns
-    const stmt = c.env.DB.prepare(
-        'INSERT INTO Turns (turn_name, event_id, athlete_id, run_id, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?)'
+// 500 middleware
+app.onError((err, c) => {
+  if (
+    err instanceof Error &&
+    err.message.includes("UNIQUE constraint failed")
+  ) {
+    return c.json(
+      { error: "A resource with the provided details already exists." },
+      409
     );
-
-    // 4. Bind values, using null for latitude/longitude if they are not provided
-    await stmt.bind(
-        turn_name, 
-        event_id, 
-        athlete_id, 
-        run_id, 
-        latitude ?? null, // Use nullish coalescing operator to provide null if undefined
-        longitude ?? null // Use nullish coalescing operator to provide null if undefined
-    ).run();
-
-    return c.json({ success: true, message: 'Turn created successfully' });
-  } catch (e: any) {
-    if (e.message?.includes('UNIQUE constraint failed')) {
-        return c.json({ success: false, message: 'Turn name already exists' }, 409);
-    }
-    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
   }
+  return c.json(
+    {
+      error: "Internal Server Error",
+      message: err instanceof Error ? err.message : "An unknown error occurred",
+    },
+    500
+  );
 });
 
-app.get('/api/runs', async (c) => {
-  try {
-    const { results } = await c.env.DB.prepare('SELECT * FROM Run').all();
-    return c.json({ success: true, runs: results });
-  } catch (e: any) {
-    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
+//#region Admin Page Create Event
+// Create Event
+app.post("/events", async (c) => {
+  const { event_name, event_location } = await c.req.json<{
+    event_name: string;
+    event_location: string;
+  }>();
+
+  // Validate
+  if (!event_name || !event_location) {
+    return c.json({ error: "Event name and location are required" }, 400);
   }
-})
 
+  // Insert
+  const stmt = c.env.DB.prepare(
+    "INSERT INTO Events (event_name, event_location) VALUES (?, ?) RETURNING *"
+  );
+  let ret = await stmt.bind(event_name, event_location).first();
 
-app.get('/api/runs/:runId', async (c) => {
-  try {
-    const runId = c.req.param('runId');
+  console.log(ret);
 
-    const stmt = c.env.DB.prepare(`
-      SELECT
-        r.run_id,
-        r.run_name,
-        r.event_id,
-        a.athlete_id,
-        a.athlete_name
-      FROM Run r
-      JOIN Athletes a ON r.athlete_id = a.athlete_id
-      WHERE r.run_id = ?
-    `);
-
-    const result: any = await stmt.bind(runId).first();
-
-    if (!result) {
-      return c.json({ success: false, message: 'Run not found' }, 404);
-    }
-
-    const run = {
-      run_id: result.run_id,
-      run_name: result.run_name,
-      event_id: result.event_id,
-      athlete: {
-        athlete_id: result.athlete_id,
-        athlete_name: result.athlete_name,
-      },
-    };
-
-    return c.json({ success: true, run: run });
-  } catch (e: any) {
-    return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-  }
-})
-/**
- * Lists all turns for a given run.
- * @param { runId: number }
- * @returns { success: boolean, turns: Array<any> }
- */
-app.get('/api/runs/:runId/turns', async (c) => {
-  try {
-      const runId = c.req.param('runId');
-      const { results } = await c.env.DB.prepare('SELECT * FROM Turns WHERE run_id = ?')
-          .bind(runId)
-          .all();
-      return c.json({ success: true, turns: results });
-  } catch (e: any) {
-      return c.json({ success: false, message: 'An error occurred', error: e.message }, 500);
-  }
+  return c.json(ret, 201);
 });
 
-// --- Video Upload Endpoint ---
+// Create Athletes
+app.post("/events/:id/athletes", async (c) => {
+  const eventId = c.req.param("id");
+  const { athletes } = await c.req.json<{ athletes: string[] }>();
 
-/**
- * Uploads a video for a specific turn and updates its R2 link.
- * @param { turnId: number }
- * @body { video: File }
- * @returns { success: boolean, message: string, r2_url: string }
- */
-app.post('/api/turns/:turnId/upload', async (c) => {
-      const turnId = c.req.param('turnId');
-      const body = await c.req.parseBody();
-      const videoFile = body['video'] as File;
-
-      if (!videoFile) {
-          return c.json({ success: false, message: 'Video file is required' }, 400);
-      }
-
-      const turn = await c.env.DB.prepare('SELECT * FROM Turns WHERE turn_id = ?').bind(turnId).first();
-      if (!turn) {
-          return c.json({ success: false, message: 'Turn not found' }, 404);
-      }
-
-      const res = await c.env.VIDEOS.put(videoFile.name, videoFile.stream(), {
-          httpMetadata: { contentType: videoFile.type },
-      });
-
-      await c.env.DB.prepare('UPDATE Turns SET r2_video_link = ? WHERE turn_id = ?')
-          .bind(res.key, turnId)
-          .run();
-
-      return c.json({ success: true, message: 'Video uploaded successfully', r2_url: res.key });
-});
-
-/**
- * Serves a video file directly from R2.
- * @param { videoId: string }
- */
-app.get('/api/videos/:videoId', async (c) => {
-  const videoId = c.req.param('videoId');
-
-  try {
-    const range = c.req.header('range');
-    const videoObject = await c.env.VIDEOS.get(videoId);
-
-    if (videoObject === null) {
-      return c.json({ success: false, message: 'Video not found' }, 404);
+  // Validate
+  {
+    if (!athletes || !Array.isArray(athletes) || athletes.length === 0) {
+      return c.json(
+        { error: "Athletes array is required and cannot be empty" },
+        400
+      );
     }
 
-    c.header('Accept-Ranges', 'bytes');
-    c.header('Content-Type', videoObject.httpMetadata?.contentType || 'application/octet-stream');
-    c.header('ETag', videoObject.httpEtag);
-
-    if (range) {
-      const match = /^bytes=(\d+)-(\d*)$/.exec(range);
-      if (match) {
-        const start = parseInt(match[1], 10);
-        const end = match[2] ? parseInt(match[2], 10) : videoObject.size - 1;
-
-        if (start >= videoObject.size || end >= videoObject.size) {
-          return new Response('Range Not Satisfiable', {
-            status: 416,
-            headers: { 'Content-Range': `bytes */${videoObject.size}` },
-          });
-        }
-
-        const contentLength = end - start + 1;
-        const rangedObject = await c.env.VIDEOS.get(videoId, { range: { offset: start, length: contentLength } });
-
-        if (rangedObject === null) {
-          return new Response('Range Not Satisfiable', {
-            status: 416,
-            headers: { 'Content-Range': `bytes */${videoObject.size}` },
-          });
-        }
-
-        return new Response(rangedObject.body, {
-          status: 206,
-          headers: {
-            'Content-Range': `bytes ${start}-${end}/${videoObject.size}`,
-            'Content-Length': contentLength.toString(),
-            'Content-Type': videoObject.httpMetadata?.contentType || 'application/octet-stream',
-            'Accept-Ranges': 'bytes',
-            'ETag': videoObject.httpEtag,
-          },
-        });
-      }
+    const event = await c.env.DB.prepare("SELECT id FROM Events WHERE id = ?")
+      .bind(eventId)
+      .first();
+    if (!event) {
+      return c.json({ error: "Event not found" }, 400);
     }
-
-    // No range header, or invalid range, serve the full video
-    c.header('Content-Length', String(videoObject.size));
-    return c.body(videoObject.body, 200);
-
-  } catch (e: any) {
-    console.error('Error fetching video:', e);
-    return c.json({ success: false, message: 'An error occurred while fetching the video', error: e.message }, 500);
   }
+
+  // Insert
+  const stmt = c.env.DB.prepare(
+    "INSERT INTO Athletes (event_id, athlete_name) VALUES (?, ?) RETURNING *"
+  );
+  const statements = athletes.map((name) => stmt.bind(eventId, name));
+  let ret = await c.env.DB.batch(statements);
+
+  return c.json(ret, 201);
 });
 
-export default app;
-export type AppType = typeof app;
+type Turn = {
+  turn_name: string;
+  latitude?: number;
+  longitude?: number;
+};
+
+// Create routes + turns
+app.post("/events/:id/routes", async (c) => {
+  const eventId = c.req.param("id");
+  const { route_name, turns } = await c.req.json<{
+    route_name: string;
+    turns: Turn[];
+  }>();
+
+  // Validate
+  {
+    if (!route_name) {
+      return c.json({ error: "Route name is required" }, 400);
+    }
+    if (!turns || !Array.isArray(turns) || turns.length === 0) {
+      return c.json(
+        { error: "Turns array is required and cannot be empty" },
+        400
+      );
+    }
+    const event = await c.env.DB.prepare("SELECT id FROM Events WHERE id = ?")
+      .bind(eventId)
+      .first();
+    if (!event) {
+      return c.json({ error: "Event not found" }, 404);
+    }
+  }
+
+  // Insert
+  let newRoute;
+  let turnsResults;
+  {
+    const routeStmt = c.env.DB.prepare(
+      "INSERT INTO Routes (event_id, route_name) VALUES (?, ?) RETURNING *"
+    );
+    newRoute = await routeStmt.bind(eventId, route_name).first();
+    if (!newRoute) {
+      return c.json({ error: "Failed to create route" }, 500);
+    }
+
+    const turnInsertStmt = c.env.DB.prepare(
+      "INSERT INTO Turns (route_id, turn_order, turn_name, latitude, longitude) VALUES (?, ?, ?, ?, ?) RETURNING *"
+    );
+    const turnStatements = turns.map((turn, index) =>
+      turnInsertStmt.bind(
+        newRoute.id,
+        index, // Use the array index as the turn_order
+        turn.turn_name,
+        turn.latitude ?? null,
+        turn.longitude ?? null
+      )
+    );
+    turnsResults = (await c.env.DB.batch(turnStatements)).flatMap(
+      (t) => t.results
+    );
+  }
+
+  return c.json({ route: newRoute, turns: turnsResults }, 201);
+});
+//#endregion Admin Page Create Event
