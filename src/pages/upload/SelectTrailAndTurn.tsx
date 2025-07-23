@@ -33,6 +33,10 @@ export default function SelectTrailAndTurnPage() {
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
+    defaultValues: {
+      trail: searchParams.get("trail") || undefined,
+      turn: searchParams.get("turn") || undefined,
+    },
   });
   function onSubmit(data: z.infer<typeof FormSchema>) {
     navigate(
@@ -82,7 +86,7 @@ export default function SelectTrailAndTurnPage() {
             size="lg"
             className="w-full"
             variant="secondary"
-            onClick={() => navigate("/upload/event")}
+            onClick={() => navigate(`/upload/event?${searchParams.toString()}`)}
           >
             Back
           </Button>
