@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "db-migrate":"wrangler d1 migrations apply ski-db --local"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.7.0",
