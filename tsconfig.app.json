@@ -29,5 +29,5 @@
       ]
     }
   },
-  "include": ["src"]
+  "include": ["src","worker/hono-rpc.ts","worker-configuration.d.ts"]
 }
