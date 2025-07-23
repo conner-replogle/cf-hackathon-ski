@@ -1,4 +1,4 @@
-# [name here] 
+# USSS Ski Video App 
 
 This repository houses the source code for our ski video uploading app.
 
@@ -24,6 +24,8 @@ pnpm run dev
 ```
 
 ## Deploying
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/conner-replogle/cf-hackathon-ski)
 
 
 ## Updating the database
