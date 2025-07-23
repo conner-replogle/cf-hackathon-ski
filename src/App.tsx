@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
-import Watch from "./pages/Watch";
+import Video from "./pages/watch/Video";
 import "./App.css";
 
 import { Admin } from "./pages/admin/Admin";
@@ -13,6 +13,7 @@ import {
   QueryClientProvider,
 } from '@tanstack/react-query'
 import { queryClient } from "./services/api";
+import { Watch } from "./pages/watch";
 
 
 
@@ -29,7 +30,10 @@ function App() {
               <Route path="trailandturn" element={<SelectTrailAndTurnPage />} />
               <Route path="video" element={<SelectVideoPage />} />
             </Route>
-            <Route path="watch/:runId" element={<Watch />} />
+            <Route path="watch">
+              <Route index element={<Watch />} />
+              <Route path=":runId" element={<Video />} />
+            </Route>
             <Route path="admin" element={<Admin />} />
           </Route>
       </Routes>
