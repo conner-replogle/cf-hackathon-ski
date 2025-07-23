@@ -26,7 +26,7 @@ interface Turn {
 
 
 
-export default function Watch() {
+export default function Video() {
   const { runId } = useParams<{ runId: string }>();
 
   const [run, setRun] = useState<Run | null>(null);
@@ -45,7 +45,7 @@ export default function Watch() {
       try {
         // Fetch run details
         const runResponse = await fetch(`/api/runs/${runId}`);
-        const runData = await runResponse.json();
+        const runData:{success: boolean, run: Run, error: string} = await runResponse.json();
 
         if (runData.success) {
           
@@ -56,7 +56,7 @@ export default function Watch() {
 
         // Fetch turns for the selected run
         const turnsResponse = await fetch(`/api/runs/${runId}/turns`);
-        const turnsData = await turnsResponse.json();
+        const turnsData:{success: boolean, turns: Turn[], error: string} = await turnsResponse.json();
 
         if (turnsData.success) {
           setTurns(turnsData.turns);
