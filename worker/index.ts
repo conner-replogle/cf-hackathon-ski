@@ -1,6 +1,39 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
+import type {
+  Event,
+  Athlete,
+  Route,
+  Turn,
+  Run,
+  Clip,
+  EventWithRelations,
+  RouteWithTurns,
+  RunWithDetails,
+  EventsResponse,
+  AthletesResponse,
+  RoutesResponse,
+  TurnsResponse,
+  RunsResponse,
+  ClipsResponse,
+  EventResponse,
+  AthleteResponse,
+  RouteResponse,
+  TurnResponse,
+  RunResponse,
+  ClipResponse,
+  EventWithRelationsResponse,
+  RouteWithTurnsResponse,
+  RunsWithDetailsResponse,
+  CreateEventRequest,
+  CreateAthleteRequest,
+  CreateRouteRequest,
+  CreateTurnRequest,
+  CreateRunRequest,
+  CreateClipRequest,
+  CreateEventAthletesRequest
+} from "./types";
 
 type Bindings = {
   DB: D1Database;
@@ -17,7 +50,8 @@ const TurnSchema = z.object({
 const eventsApp = new Hono<{ Bindings: Bindings }>()
   .get("/", async (c) => {
     const { results } = await c.env.DB.prepare("SELECT * FROM Events").all();
-    return c.json(results, 200);
+    const events = results as unknown as Event[];
+    return c.json(events, 200);
   })
   .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
     const { id: eventId } = c.req.valid("param");
@@ -42,16 +76,14 @@ const eventsApp = new Hono<{ Bindings: Bindings }>()
     if (!event) {
       return c.json({ error: "Event not found" }, 404);
     }
-    return c.json(
-      {
-        ...event,
-        athletes: athletesResult.results,
-        routes: routesResult.results,
-      },
-      200
-    );
+    const eventWithRelations: EventWithRelations = {
+      ...(event as unknown as Event),
+      athletes: athletesResult.results as unknown as Athlete[],
+      routes: routesResult.results as unknown as Route[],
+    };
+    return c.json(eventWithRelations, 200);
   })
-  
+
   .post(
     "/",
     zValidator(
@@ -67,7 +99,7 @@ const eventsApp = new Hono<{ Bindings: Bindings }>()
         "INSERT INTO Events (event_name, event_location) VALUES (?, ?) RETURNING *"
       );
       const newEvent = await stmt.bind(event_name, event_location).first();
-      return c.json(newEvent, 201);
+      return c.json(newEvent as unknown as Event, 201);
     }
   )
   .post(
@@ -91,7 +123,8 @@ const eventsApp = new Hono<{ Bindings: Bindings }>()
       );
       const statements = athletes.map((name) => stmt.bind(eventId, name));
       const results = await c.env.DB.batch(statements);
-      return c.json(results, 201);
+      const createdAthletes = results.map(result => result.results?.[0] as unknown as Athlete).filter(Boolean);
+      return c.json(createdAthletes, 201);
     }
   )
   .post(
@@ -548,6 +581,69 @@ const app = new Hono<{ Bindings: Bindings }>()
   .route("/api/routes", routesApp)
   .route("/api/turns", turnsApp)
   .route("/api/runs", runsApp);
+/**
+ * Serves a video file directly from R2.
+ * @param { videoId: string }
+ */
+// app.get('/api/videos/:videoId', async (c) => {
+//   const videoId = c.req.param('videoId');
 
+//   try {
+//     const range = c.req.header('range');
+//     const videoObject = await c.env.VIDEOS.get(videoId);
+
+//     if (videoObject === null) {
+//       return c.json({ success: false, message: 'Video not found' }, 404);
+//     }
+
+//     c.header('Accept-Ranges', 'bytes');
+//     c.header('Content-Type', videoObject.httpMetadata?.contentType || 'application/octet-stream');
+//     c.header('ETag', videoObject.httpEtag);
+
+//     if (range) {
+//       const match = /^bytes=(\d+)-(\d*)$/.exec(range);
+//       if (match) {
+//         const start = parseInt(match[1], 10);
+//         const end = match[2] ? parseInt(match[2], 10) : videoObject.size - 1;
+
+//         if (start >= videoObject.size || end >= videoObject.size) {
+//           return new Response('Range Not Satisfiable', {
+//             status: 416,
+//             headers: { 'Content-Range': `bytes */${videoObject.size}` },
+//           });
+//         }
+
+//         const contentLength = end - start + 1;
+//         const rangedObject = await c.env.VIDEOS.get(videoId, { range: { offset: start, length: contentLength } });
+
+//         if (rangedObject === null) {
+//           return new Response('Range Not Satisfiable', {
+//             status: 416,
+//             headers: { 'Content-Range': `bytes */${videoObject.size}` },
+//           });
+//         }
+
+//         return new Response(rangedObject.body, {
+//           status: 206,
+//           headers: {
+//             'Content-Range': `bytes ${start}-${end}/${videoObject.size}`,
+//             'Content-Length': contentLength.toString(),
+//             'Content-Type': videoObject.httpMetadata?.contentType || 'application/octet-stream',
+//             'Accept-Ranges': 'bytes',
+//             'ETag': videoObject.httpEtag,
+//           },
+//         });
+//       }
+//     }
+
+//     // No range header, or invalid range, serve the full video
+//     c.header('Content-Length', String(videoObject.size));
+//     return c.body(videoObject.body, 200);
+
+//   } catch (e: any) {
+//     console.error('Error fetching video:', e);
+//     return c.json({ success: false, message: 'An error occurred while fetching the video', error: e.message }, 500);
+//   }
+// });
 export type AppType = typeof app;
 export default app;

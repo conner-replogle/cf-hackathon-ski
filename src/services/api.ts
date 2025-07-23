@@ -2,7 +2,7 @@ import { QueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { hc, type InferRequestType, type InferResponseType } from "hono/client";
 import type { AppType } from "worker";
 
-const client = hc<AppType>('/api')
+const client = hc<AppType>('/')
 const queryClient = new QueryClient()
 
 
@@ -252,6 +252,8 @@ function useCreateEventRoute(eventId: string) {
 
     return { createEventRoute }
 }
+
+
 
 export {
     queryClient, 
