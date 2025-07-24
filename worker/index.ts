@@ -383,7 +383,7 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
   })
   .get(
     "/event/:eventId",
-    zValidator("param", z.object({ eventId: z.number() })),
+    zValidator("param", z.object({ eventId: z.string() })),
     async (c) => {
       const { eventId } = c.req.valid("param");
 
