@@ -19,13 +19,13 @@ import { useState } from "react";
 
 export type ComboboxData = {
   label: string;
-  value: string;
+  value: string | number;
 };
 
 type Props = {
   data: ComboboxData[];
-  value: string;
-  onSelect: (val: string) => void;
+  value: ComboboxData["value"];
+  onSelect: (val: ComboboxData["value"]) => void;
   itemLabel: string;
 };
 
@@ -65,7 +65,6 @@ export default function Combobox({ data, value, onSelect, itemLabel }: Props) {
                   value={item.label}
                   key={item.value}
                   onSelect={() => {
-                    // form.setValue("event", item.value);
                     onSelect(item.value);
                     setComboboxOpen(false);
                   }}

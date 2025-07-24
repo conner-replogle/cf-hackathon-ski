@@ -4,7 +4,6 @@ import Home from "./pages/Home";
 import Video from "./pages/watch/Video";
 import "./App.css";
 
-import { Admin } from "./pages/admin/Admin";
 import SelectEventPage from "./pages/upload/SelectEvent";
 import SelectTrailAndTurnPage from "./pages/upload/SelectTrailAndTurn";
 import SelectVideoPage from "./pages/upload/SelectVideo";
@@ -14,6 +13,7 @@ import {
 } from '@tanstack/react-query'
 import { queryClient } from "./services/api";
 import { Watch } from "./pages/watch";
+import Admin from "./pages/admin/Admin";
 
 
 
