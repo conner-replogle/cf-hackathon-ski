@@ -11,7 +11,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FilePond, registerPlugin } from "react-filepond";
 import "filepond/dist/filepond.min.css";
@@ -20,8 +20,6 @@ import Combobox from "@/components/ui/combo-box";
 import FilePondPluginMediaPreview from "filepond-plugin-media-preview";
 import "filepond-plugin-media-preview/dist/filepond-plugin-media-preview.min.css";
 import { client, useAthletes } from "@/services/api";
-import { Toaster } from "@/components/ui/sonner";
-import { toast } from "sonner";
 
 registerPlugin(FilePondPluginMediaPreview);
 
@@ -35,6 +33,8 @@ const FormSchema = z.object({
 export default function SelectVideoPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  const [showSuccessMsg, setShowSuccessMsg] = useState(false);
 
   useEffect(() => {
     const params = ["event", "route", "turn"];
@@ -78,9 +78,10 @@ export default function SelectVideoPage() {
       },
       form: { video: data.video },
     });
-    toast.success("Uploaded Video", { position: "top-center" });
+    setShowSuccessMsg(true);
     form.reset();
   }
+
   return (
     <Layout description="Finally upload a video and tag an athlete">
       <Form {...form}>
@@ -140,6 +141,11 @@ export default function SelectVideoPage() {
             Back
           </Button>
         </form>
+        {showSuccessMsg && (
+          <div className="rounded-md ring ring-green-500 bg-green-500/10 text-green-700 p-2 text-center">
+            Successfully uploaded!
+          </div>
+        )}
       </Form>
     </Layout>
   );
