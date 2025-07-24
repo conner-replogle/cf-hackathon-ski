@@ -17,6 +17,7 @@ import {
   ClipSchema,
   ClipR2ResultSchema,
 } from "./schema";
+import type { Clip } from "./types";
 
 type Bindings = {
   DB: D1Database;
@@ -370,29 +371,6 @@ const turnsApp = new Hono<{ Bindings: Bindings }>()
     },
   );
 
-
-// Runs & Clips
-const seedApp = new Hono<{ Bindings: Bindings }>()
-  .post(
-    "/clips",
-    zValidator(
-      "json",
-      z.object({
-        run_id: z.number(),
-        turn_id: z.number(),
-        r2_video_link: z.string().url(),
-      })
-    ),
-    async (c) => {
-      const { run_id, turn_id, r2_video_link } = c.req.valid("json");
-      const stmt = c.env.DB.prepare(
-        "INSERT INTO Clips (run_id, turn_id, clip_r2) VALUES (?, ?, ?) RETURNING *"
-      );
-      const newClip = await stmt.bind(run_id, turn_id, r2_video_link).first();
-      return c.json(newClip, 201);
-    }
-  );
-
 const runsApp = new Hono<{ Bindings: Bindings }>()
   .get("/", async (c) => {
     const { results } = await c.env.DB.prepare("SELECT * FROM Runs").all();
@@ -480,17 +458,22 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
       return c.body(null, 204);
     },
   )
+  .get("/:runId/clips", zValidator("param", z.object({ runId: z.string() })), async (c) => {
+    const { runId } = c.req.valid("param");
+    const {results} = await c.env.DB.prepare("SELECT * FROM Clips WHERE run_id = ?").bind(runId).all();
+    return c.json(results as unknown as Clip[], 200);
+  })
   .get(
     "/:runId/turns/:turnId/clips",
     zValidator("param", z.object({ runId: z.string(), turnId: z.string() })),
     async (c) => {
       const { runId, turnId } = c.req.valid("param");
       const clip = await c.env.DB.prepare(
-        "SELECT clip_r2 FROM Clips WHERE run_id = ? AND turn_id = ?",
+        "SELECT * FROM Clips WHERE run_id = ? AND turn_id = ?",
       )
         .bind(runId, turnId)
         .first();
-      const parsedClip = ClipR2ResultSchema.safeParse(clip);
+      const parsedClip = ClipSchema.safeParse(clip);
       if (!parsedClip.success || !parsedClip.data.clip_r2) {
         return c.json({ error: "Clip not found" }, 404);
       }
@@ -518,7 +501,7 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
         .bind(turnId)
         .first();
       if (!turn) return c.json({ error: "Turn not found" }, 404);
-      const r2Key = `runs/${runId}/turns/${turnId}.mp4`;
+      const r2Key = `${runId}/${turnId}.mp4`;
       await c.env.VIDEOS.put(r2Key, videoFile.stream(), {
         httpMetadata: { contentType: videoFile.type },
       });
@@ -585,7 +568,68 @@ const app = new Hono<{ Bindings: Bindings }>()
   .route("/api/athletes", athletesApp)
   .route("/api/routes", routesApp)
   .route("/api/turns", turnsApp)
-  .route("/api/runs", runsApp);
+  .route("/api/runs", runsApp)
+  .get('/api/videos/:runId/turns/:turnId', async (c) => {
+  const runId = c.req.param('runId');
+  const turnId = c.req.param('turnId');
+
+  try {
+    const range = c.req.header('range');
+    const videoObject = await c.env.VIDEOS.get(`${runId}/${turnId}`);
+
+    if (videoObject === null) {
+      return c.json({ success: false, message: 'Video not found' }, 404);
+    }
+
+    c.header('Accept-Ranges', 'bytes');
+    c.header('Content-Type', videoObject.httpMetadata?.contentType || 'application/octet-stream');
+    c.header('ETag', videoObject.httpEtag);
+
+    if (range) {
+      const match = /^bytes=(\d+)-(\d*)$/.exec(range);
+      if (match) {
+        const start = parseInt(match[1], 10);
+        const end = match[2] ? parseInt(match[2], 10) : videoObject.size - 1;
+
+        if (start >= videoObject.size || end >= videoObject.size) {
+          return new Response('Range Not Satisfiable', {
+            status: 416,
+            headers: { 'Content-Range': `bytes */${videoObject.size}` },
+          });
+        }
+
+        const contentLength = end - start + 1;
+        const rangedObject = await c.env.VIDEOS.get(`${runId}/${turnId}`, { range: { offset: start, length: contentLength } });
+
+        if (rangedObject === null) {
+          return new Response('Range Not Satisfiable', {
+            status: 416,
+            headers: { 'Content-Range': `bytes */${videoObject.size}` },
+          });
+        }
+
+        return new Response(rangedObject.body, {
+          status: 206,
+          headers: {
+            'Content-Range': `bytes ${start}-${end}/${videoObject.size}`,
+            'Content-Length': contentLength.toString(),
+            'Content-Type': videoObject.httpMetadata?.contentType || 'application/octet-stream',
+            'Accept-Ranges': 'bytes',
+            'ETag': videoObject.httpEtag,
+          },
+        });
+      }
+    }
+
+    // No range header, or invalid range, serve the full video
+    c.header('Content-Length', String(videoObject.size));
+    return c.body(videoObject.body, 200);
+
+  } catch (e: any) {
+    console.error('Error fetching video:', e);
+    return c.json({ success: false, message: 'An error occurred while fetching the video', error: e.message }, 500);
+  }
+});
 
 export type AppType = typeof app;
 export default app;

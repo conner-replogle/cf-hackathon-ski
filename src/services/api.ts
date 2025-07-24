@@ -191,6 +191,22 @@ function useTurn(turnId: string | undefined) {
     return { turn }
 }
 
+function useRunClips(runId: string | undefined) {
+    const clips = useQuery({
+        queryKey: ['clips', runId],
+        queryFn: async () => {
+            const res = await client.api.runs[':runId'].clips.$get({
+                param: { runId: runId! }
+            })
+            return await res.json()
+        },
+        enabled: !!runId,
+    })
+    console.log(clips.data)  
+
+    return { clips }
+}
+
 function useRun(runId: string | undefined) {
     const run = useQuery<Run | null, Error>({
         queryKey: ['runs', runId],
@@ -289,5 +305,6 @@ export {
     useTurns,
     useTurn,
     useCreateEventAthletes,
-    useCreateEventRoute
+    useCreateEventRoute,
+    useRunClips 
 }
