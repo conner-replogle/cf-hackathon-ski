@@ -11,21 +11,21 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { FilePond, registerPlugin } from "react-filepond";
 import "filepond/dist/filepond.min.css";
 import Combobox from "@/components/ui/combo-box";
-import { athletes } from "./mock";
 // @ts-ignore
 import FilePondPluginMediaPreview from "filepond-plugin-media-preview";
 import "filepond-plugin-media-preview/dist/filepond-plugin-media-preview.min.css";
+import { useAthletes } from "@/services/api";
 
 registerPlugin(FilePondPluginMediaPreview);
 
 const FormSchema = z.object({
   video: z.instanceof(File, { message: "Please upload a video" }),
-  athlete: z.string({
+  athlete: z.number({
     required_error: "Please select an athlete.",
   }),
 });
@@ -35,7 +35,7 @@ export default function SelectVideoPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const params = ["event", "trail", "turn"];
+    const params = ["event", "route", "turn"];
     for (const param of params) {
       if (!searchParams.get(param)) {
         navigate("/upload/event");
@@ -47,6 +47,18 @@ export default function SelectVideoPage() {
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
   });
+
+  const { athletes } = useAthletes();
+  const athletesData = useMemo(
+    () =>
+      athletes.data
+        ? athletes.data.map((athlete) => ({
+            label: athlete.athlete_name,
+            value: athlete.id,
+          }))
+        : [],
+    [athletes.data],
+  );
 
   function onSubmit(data: z.infer<typeof FormSchema>) {
     console.log("form data", data);
@@ -88,9 +100,9 @@ export default function SelectVideoPage() {
               <FormItem className="flex flex-col">
                 <FormLabel>Athlete</FormLabel>
                 <Combobox
-                  data={athletes}
+                  data={athletesData}
                   value={field.value}
-                  onSelect={(val) => form.setValue("athlete", val)}
+                  onSelect={(val) => form.setValue("athlete", val as number)}
                   itemLabel="athlete"
                 />
               </FormItem>
