@@ -1,7 +1,7 @@
 import { QueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { hc, type InferRequestType, type InferResponseType } from "hono/client";
 import type { AppType } from "worker";
-import type { Event, Athlete, Route, Turn, Run } from "worker/types";
+import type { Event, Athlete, Turn, Run } from "worker/types";
 
 export const client = hc<AppType>("/");
 const queryClient = new QueryClient();
@@ -108,7 +108,29 @@ function useAthletes() {
     },
   });
 
-  return { athletes };
+  const $post = client.api.athletes.$post;
+
+  const createAthlete = useMutation<
+    InferResponseType<typeof $post>,
+    Error,
+    InferRequestType<typeof $post>["json"]
+  >({
+    mutationFn: async (athlete) => {
+      const res = await $post({
+        json: athlete,
+      });
+      if (!res.ok) throw new Error("Failed to create athlete");
+      return await res.json();
+    },
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ["athletes"] });
+    },
+    onError: (error) => {
+      console.log(error);
+    },
+  });
+
+  return { athletes, createAthlete };
 }
 
 function useAthlete(athleteId: string | undefined) {
@@ -161,7 +183,7 @@ function useRoute(routeId: string | undefined) {
   return { route };
 }
 
-function useTurns(routeId?: number) {
+function useTurns(routeId?: string) {
   const turns = useQuery({
     queryKey: ["turns", routeId],
     queryFn: async () => {
@@ -290,8 +312,9 @@ function useCreateEventRoute(eventId: string) {
   });
 
   return { createEventRoute };
-  return { createEventRoute };
 }
+
+
 
 export {
   queryClient,

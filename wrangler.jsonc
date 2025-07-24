@@ -2,20 +2,21 @@
   "name": "cf-hackathon-ski",
   "compatibility_date": "2025-04-03",
   "assets": {
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "directory": "dist"
   },
   "main": "./worker/index.ts",
   "r2_buckets": [
     {
       "binding": "VIDEOS",
-      "bucket_name": "videos-storage"
+      "bucket_name": "cf-ski-videos"
     }
   ],
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "ski-db",
-      "database_id": "ski-db"
+      "database_id": "fd6f9916-ff0c-4505-be09-0f8f119e7031"
     }
   ]
 }

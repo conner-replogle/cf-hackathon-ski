@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { EventsManager } from './components/EventsManager';
+import { AthletesManager } from './components/AthletesManager';
+import { RoutesManager } from './components/RoutesManager';
 import { Button } from '@/components/ui/button';
-import type { Event, Athlete, Route, Turn } from 'worker/types';
+
 import { Users, MapPin, Trophy, Loader2 } from 'lucide-react';
-import { useEvents, useAthletes, useRoutes, useTurns } from '@/services/api';
+import { useEvents, useAthletes, useRoutes } from '@/services/api';
 
 // Main Admin Component
 export function Admin() {
@@ -12,9 +14,7 @@ export function Admin() {
   const { events: { data: eventsData, isLoading: eventsLoading } } = useEvents();
   const { athletes: { data: athletesData, isLoading: athletesLoading } } = useAthletes();
   const { routes: { data: routesData, isLoading: routesLoading } } = useRoutes();
-  const { turns: { data: turnsData, isLoading: turnsLoading } } = useTurns();
-    
-  const isLoading = eventsLoading || athletesLoading || routesLoading || turnsLoading;
+  const isLoading = eventsLoading || athletesLoading || routesLoading;
 
   const tabConfig = [
     { id: 'events' as const, label: 'Events', icon: Trophy, count: eventsData?.length ?? 0 },
@@ -41,7 +41,7 @@ export function Admin() {
             Admin Dashboard
           </h1>
           <p className="text-sm sm:text-base text-gray-600">
-            A read-only overview of your ski tracking system data.
+            Manage your events, routes, and athletes.
           </p>
         </div>
 
@@ -67,86 +67,13 @@ export function Admin() {
         </div>
 
         <div className="space-y-6">
-          {activeTab === 'events' && <EventsList events={eventsData || []} />}
-          {activeTab === 'routes' && <RoutesList routes={routesData || []} turns={turnsData || []} />}
-          {activeTab === 'athletes' && <AthletesList athletes={athletesData || []} />}
+          {activeTab === 'events' && <EventsManager />}
+          {activeTab === 'routes' && <RoutesManager />}
+          {activeTab === 'athletes' && <AthletesManager />}
         </div>
       </div>
     </div>
   );
 }
 
-// Simplified Read-Only List Components
 
-function EventsList({ events }: { events: Event[] }) {
-  return (
-    <section>
-      <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-4">Events</h2>
-      <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-        {events.map((event) => (
-          <Card key={event.id}>
-            <CardHeader>
-              <CardTitle className="truncate">{event.event_name}</CardTitle>
-              <CardDescription>{event.event_location}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-500">ID: {event.id}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-      {events.length === 0 && <p className="text-gray-500">No events found.</p>}
-    </section>
-  );
-}
-
-function RoutesList({ routes, turns }: { routes: Route[], turns: Turn[] }) {
-  return (
-    <section>
-      <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-4">Routes</h2>
-      <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-        {routes.map((route) => {
-          const routeTurns = turns.filter(t => t.route_id === route.id);
-          return (
-            <Card key={route.id}>
-              <CardHeader>
-                <CardTitle className="truncate">{route.route_name}</CardTitle>
-                <CardDescription>Event ID: {route.event_id}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm font-medium text-gray-700">Turns: {routeTurns.length}</p>
-                <ul className="text-xs text-gray-500 list-disc pl-4 mt-1">
-                  {routeTurns.slice(0, 3).map(t => <li key={t.id} className="truncate">{t.turn_name}</li>)}
-                  {routeTurns.length > 3 && <li>...and {routeTurns.length - 3} more</li>}
-                </ul>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-      {routes.length === 0 && <p className="text-gray-500">No routes found.</p>}
-    </section>
-  );
-}
-
-function AthletesList({ athletes }: { athletes: Athlete[] }) {
-  return (
-    <section>
-      <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-4">Athletes</h2>
-      <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-        {athletes.map((athlete) => (
-          <Card key={athlete.id}>
-            <CardHeader>
-              <CardTitle className="truncate">{athlete.athlete_name}</CardTitle>
-              <CardDescription>Event ID: {athlete.event_id}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-500">ID: {athlete.id}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-      {athletes.length === 0 && <p className="text-gray-500">No athletes found.</p>}
-    </section>
-  );
-}
