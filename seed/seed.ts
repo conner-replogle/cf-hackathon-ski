@@ -170,52 +170,75 @@ async function seedDatabase() {
       }
     }
     
-    // Step 4: Create Runs (athletes on routes)
-    log('Creating runs...');
+    // Step 4: Create Runs and Clips
+    log('Creating runs and clips...');
+    const createdRuns: Run[] = [];
     let runOrder = 1;
-    
+    let createdClipsCount = 0;
+
     for (const event of createdEvents) {
-      // Get athletes for this event
       const eventAthletes = createdAthletes.filter(athlete => athlete.event_id === event.id);
-      // Get routes for this event  
       const eventRoutes = createdRoutes.filter(route => route.event_id === event.id);
-      
-      // Create runs for each athlete on each route
-      for (const athlete of eventAthletes.slice(0, 3)) { // Limit to first 3 athletes per event
-        for (const route of eventRoutes.slice(0, 2)) { // Limit to first 2 routes per athlete
-          try {
+
+      for (const athlete of eventAthletes) {
+        for (const route of eventRoutes) {
             const runData: CreateRunRequest = {
               route_id: route.id,
               athlete_id: athlete.id,
-              run_order: runOrder++
+              run_order: runOrder++,
             };
-            
-            const response = await client.api.runs.$post({
-              json: runData
-            });
-            
-            if (response.ok) {
-              const result = await response.json() as Run;
+
+            const runResponse = await client.api.runs.$post({ json: runData });
+
+            if (runResponse.ok) {
+              const runResult = (await runResponse.json()) as Run;
+              createdRuns.push(runResult);
               logSuccess(`Created run for ${athlete.athlete_name} on ${route.route_name}`);
+
+              // Fetch full route details to get turns
+              const routeDetailsResponse = await client.api.routes[':id'].$get({ param: { id: route.id.toString() } });
+              if (routeDetailsResponse.ok) {
+                const routeWithTurns = (await routeDetailsResponse.json()) as any; // Bypassing incorrect type definition
+                const turns = routeWithTurns.turns ?? [];
+
+                for (const turn of turns) {
+                  
+                  const clipData = {
+                    run_id: runResult.id,
+                    turn_id: turn.id,
+                    r2_video_link: `https://mock.videos/clip_${runResult.id}_${turn.id}.mp4`,
+                  };
+                  // Use the new seeding endpoint for clips
+                  const clipResponse = await client.api.seed.clips.$post({ json: clipData });
+                  if (clipResponse.ok) {
+                    createdClipsCount++;
+                    log(`  Successfully created clip for turn: ${turn.turn_name}`);
+                  } else {
+                    logError(`  Failed to create clip for turn: ${turn.turn_name}`, await clipResponse.text());
+                  }
+                  await delay(50);
+                  
+                }
+              } else {
+                logError(`Failed to fetch details for route: ${route.route_name}`, await routeDetailsResponse.text());
+              }
             } else {
-              logError(`Failed to create run for ${athlete.athlete_name}`, await response.text());
+              logError(`Failed to create run for ${athlete.athlete_name}`, await runResponse.text());
             }
-            
             await delay(100);
-          } catch (error) {
-            logError(`Error creating run for ${athlete.athlete_name}`, error);
           }
-        }
+        
       }
     }
-    
+
     // Step 5: Summary
-    log('Seeding completed!');
+    log('\n--- Seeding Summary ---');
     logSuccess('Database seeding summary:', {
       events: createdEvents.length,
       athletes: createdAthletes.length,
       routes: createdRoutes.length,
-      estimatedRuns: Math.min(createdAthletes.length, 18) // 3 athletes * 2 routes * 3 events
+      runs: createdRuns.length,
+      clips: createdClipsCount,
     });
     
   } catch (error) {

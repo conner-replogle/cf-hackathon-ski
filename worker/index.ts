@@ -382,6 +382,27 @@ const turnsApp = new Hono<{ Bindings: Bindings }>()
   );
 
 // Runs & Clips
+const seedApp = new Hono<{ Bindings: Bindings }>()
+  .post(
+    "/clips",
+    zValidator(
+      "json",
+      z.object({
+        run_id: z.number(),
+        turn_id: z.number(),
+        r2_video_link: z.string().url(),
+      })
+    ),
+    async (c) => {
+      const { run_id, turn_id, r2_video_link } = c.req.valid("json");
+      const stmt = c.env.DB.prepare(
+        "INSERT INTO Clips (run_id, turn_id, clip_r2) VALUES (?, ?, ?) RETURNING *"
+      );
+      const newClip = await stmt.bind(run_id, turn_id, r2_video_link).first();
+      return c.json(newClip, 201);
+    }
+  );
+
 const runsApp = new Hono<{ Bindings: Bindings }>()
   .get("/", async (c) => {
     const { results } = await c.env.DB.prepare("SELECT * FROM Runs").all();
@@ -393,13 +414,6 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
     async (c) => {
       const { eventId } = c.req.valid("param");
 
-      // First verify the event exists
-      const event = await c.env.DB.prepare("SELECT id FROM Events WHERE id = ?")
-        .bind(eventId)
-        .first();
-      if (!event) {
-        return c.json({ error: "Event not found" }, 404);
-      }
 
       // Get runs for the event through routes
       const { results } = await c.env.DB.prepare(
@@ -582,70 +596,68 @@ const app = new Hono<{ Bindings: Bindings }>()
   .route("/api/athletes", athletesApp)
   .route("/api/routes", routesApp)
   .route("/api/turns", turnsApp)
-  .route("/api/runs", runsApp);
-/**
- * Serves a video file directly from R2.
- * @param { videoId: string }
- */
-// app.get('/api/videos/:videoId', async (c) => {
-//   const videoId = c.req.param('videoId');
+  .route("/api/runs", runsApp)
+  .route("/api/seed", seedApp)
+  
+  .get('/api/videos/:videoId', async (c) => {
+  const videoId = c.req.param('videoId');
 
-//   try {
-//     const range = c.req.header('range');
-//     const videoObject = await c.env.VIDEOS.get(videoId);
+  try {
+    const range = c.req.header('range');
+    const videoObject = await c.env.VIDEOS.get(videoId);
 
-//     if (videoObject === null) {
-//       return c.json({ success: false, message: 'Video not found' }, 404);
-//     }
+    if (videoObject === null) {
+      return c.json({ success: false, message: 'Video not found' }, 404);
+    }
 
-//     c.header('Accept-Ranges', 'bytes');
-//     c.header('Content-Type', videoObject.httpMetadata?.contentType || 'application/octet-stream');
-//     c.header('ETag', videoObject.httpEtag);
+    c.header('Accept-Ranges', 'bytes');
+    c.header('Content-Type', videoObject.httpMetadata?.contentType || 'application/octet-stream');
+    c.header('ETag', videoObject.httpEtag);
 
-//     if (range) {
-//       const match = /^bytes=(\d+)-(\d*)$/.exec(range);
-//       if (match) {
-//         const start = parseInt(match[1], 10);
-//         const end = match[2] ? parseInt(match[2], 10) : videoObject.size - 1;
+    if (range) {
+      const match = /^bytes=(\d+)-(\d*)$/.exec(range);
+      if (match) {
+        const start = parseInt(match[1], 10);
+        const end = match[2] ? parseInt(match[2], 10) : videoObject.size - 1;
 
-//         if (start >= videoObject.size || end >= videoObject.size) {
-//           return new Response('Range Not Satisfiable', {
-//             status: 416,
-//             headers: { 'Content-Range': `bytes */${videoObject.size}` },
-//           });
-//         }
+        if (start >= videoObject.size || end >= videoObject.size) {
+          return new Response('Range Not Satisfiable', {
+            status: 416,
+            headers: { 'Content-Range': `bytes */${videoObject.size}` },
+          });
+        }
 
-//         const contentLength = end - start + 1;
-//         const rangedObject = await c.env.VIDEOS.get(videoId, { range: { offset: start, length: contentLength } });
+        const contentLength = end - start + 1;
+        const rangedObject = await c.env.VIDEOS.get(videoId, { range: { offset: start, length: contentLength } });
 
-//         if (rangedObject === null) {
-//           return new Response('Range Not Satisfiable', {
-//             status: 416,
-//             headers: { 'Content-Range': `bytes */${videoObject.size}` },
-//           });
-//         }
+        if (rangedObject === null) {
+          return new Response('Range Not Satisfiable', {
+            status: 416,
+            headers: { 'Content-Range': `bytes */${videoObject.size}` },
+          });
+        }
 
-//         return new Response(rangedObject.body, {
-//           status: 206,
-//           headers: {
-//             'Content-Range': `bytes ${start}-${end}/${videoObject.size}`,
-//             'Content-Length': contentLength.toString(),
-//             'Content-Type': videoObject.httpMetadata?.contentType || 'application/octet-stream',
-//             'Accept-Ranges': 'bytes',
-//             'ETag': videoObject.httpEtag,
-//           },
-//         });
-//       }
-//     }
+        return new Response(rangedObject.body, {
+          status: 206,
+          headers: {
+            'Content-Range': `bytes ${start}-${end}/${videoObject.size}`,
+            'Content-Length': contentLength.toString(),
+            'Content-Type': videoObject.httpMetadata?.contentType || 'application/octet-stream',
+            'Accept-Ranges': 'bytes',
+            'ETag': videoObject.httpEtag,
+          },
+        });
+      }
+    }
 
-//     // No range header, or invalid range, serve the full video
-//     c.header('Content-Length', String(videoObject.size));
-//     return c.body(videoObject.body, 200);
+    // No range header, or invalid range, serve the full video
+    c.header('Content-Length', String(videoObject.size));
+    return c.body(videoObject.body, 200);
 
-//   } catch (e: any) {
-//     console.error('Error fetching video:', e);
-//     return c.json({ success: false, message: 'An error occurred while fetching the video', error: e.message }, 500);
-//   }
-// });
+  } catch (e: any) {
+    console.error('Error fetching video:', e);
+    return c.json({ success: false, message: 'An error occurred while fetching the video', error: e.message }, 500);
+  }
+});
 export type AppType = typeof app;
 export default app;
