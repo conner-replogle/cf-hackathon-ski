@@ -1,15 +1,9 @@
 // src/components/Timeline.tsx
 
-interface Turn {
-  turn_id: number;
-  turn_name: string;
-  event_id: number;
-  athlete_id: number;
-  r2_video_link: string;
-}
+import type { Clip } from "worker/types";
 
 interface VideoSegment {
-  turn: Turn;
+  clip: Clip;
   startTime: number;
   endTime: number;
   duration: number;
@@ -51,15 +45,15 @@ export const Timeline = ({ videoSegments, currentTime, totalDuration, onTimeline
         />
         {videoSegments.map((segment, index) => (
           <div
-            key={segment.turn.turn_id}
+            key={String(segment.clip.turn_id) + String(segment.clip.run_id)}
             className={`absolute top-0 flex pl-4 justify-start items-center h-full border-r-2 border-background/50 transition-all duration-200 ${index === currentVideoIndex ? 'ring-2 ring-primary-foreground ring-offset-2 ring-offset-primary rounded-lg' : ''}`}
             style={{
               left: `${totalDuration > 0 ? (segment.startTime / totalDuration) * 100 : 0}%`,
               width: `${totalDuration > 0 ? (segment.duration / totalDuration) * 100 : 0}%`,
             }}
-            title={`${segment.turn.turn_name} (${formatTime(segment.duration)})`}
+            title={`${segment.clip.turn_id} (${formatTime(segment.duration)})`}
           >
-            <p>{segment.turn.turn_name}</p>
+            <p>{segment.clip.turn_id}</p>
           </div>
         ))}
       </div>

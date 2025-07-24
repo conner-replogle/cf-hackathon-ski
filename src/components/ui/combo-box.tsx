@@ -27,14 +27,38 @@ type Props = {
   value: ComboboxData["value"];
   onSelect: (val: ComboboxData["value"]) => void;
   itemLabel: string;
+  isInForm?: boolean;
 };
 
-export default function Combobox({ data, value, onSelect, itemLabel }: Props) {
+export default function Combobox({
+  data,
+  value,
+  onSelect,
+  itemLabel,
+  isInForm = true,
+}: Props) {
   const [comboboxOpen, setComboboxOpen] = useState(false);
   return (
     <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
       <PopoverTrigger asChild>
-        <FormControl>
+        {isInForm ? (
+          <FormControl>
+            <Button
+              variant="outline"
+              role="combobox"
+              size="lg"
+              className={cn(
+                "w-full justify-between",
+                !value && "text-muted-foreground",
+              )}
+            >
+              {value
+                ? data.find((item) => item.value === value)?.label
+                : `Select ${itemLabel}`}
+              <ChevronsUpDown className="opacity-50" />
+            </Button>
+          </FormControl>
+        ) : (
           <Button
             variant="outline"
             role="combobox"
@@ -49,7 +73,7 @@ export default function Combobox({ data, value, onSelect, itemLabel }: Props) {
               : `Select ${itemLabel}`}
             <ChevronsUpDown className="opacity-50" />
           </Button>
-        </FormControl>
+        )}
       </PopoverTrigger>
       <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]">
         <Command>

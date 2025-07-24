@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 // Database Entity Types
@@ -81,7 +80,6 @@ export const CreateRouteRequestSchema = z.object({
 export const CreateRunRequestSchema = z.object({
   route_id: z.number(),
   athlete_id: z.number(),
-  run_order: z.number(),
 });
 
 export const CreateClipRequestSchema = z.object({
