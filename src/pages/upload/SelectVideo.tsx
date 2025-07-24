@@ -19,7 +19,9 @@ import Combobox from "@/components/ui/combo-box";
 // @ts-ignore
 import FilePondPluginMediaPreview from "filepond-plugin-media-preview";
 import "filepond-plugin-media-preview/dist/filepond-plugin-media-preview.min.css";
-import { useAthletes } from "@/services/api";
+import { client, useAthletes } from "@/services/api";
+import { Toaster } from "@/components/ui/sonner";
+import { toast } from "sonner";
 
 registerPlugin(FilePondPluginMediaPreview);
 
@@ -60,8 +62,23 @@ export default function SelectVideoPage() {
     [athletes.data],
   );
 
-  function onSubmit(data: z.infer<typeof FormSchema>) {
-    console.log("form data", data);
+  async function onSubmit(data: z.infer<typeof FormSchema>) {
+    const run = await client.api.runs.$post({
+      json: {
+        route_id: parseInt(searchParams?.get("route") || ""),
+        athlete_id: data.athlete,
+      },
+    });
+    const runId = (await run.json()).id;
+
+    await client.api.runs[":runId"].turns[":turnId"].clips.$post({
+      param: {
+        runId: runId.toString(),
+        turnId: searchParams?.get("turn") || "",
+      },
+      form: { video: data.video },
+    });
+    toast.success("Uploaded Video", { position: "top-center" });
     form.reset();
   }
   return (

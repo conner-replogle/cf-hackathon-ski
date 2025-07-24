@@ -3,7 +3,7 @@ import { hc, type InferRequestType, type InferResponseType } from "hono/client";
 import type { AppType } from "worker";
 import type { Event, Athlete, Route, Turn, Run } from "worker/types";
 
-const client = hc<AppType>("/");
+export const client = hc<AppType>("/");
 const queryClient = new QueryClient();
 
 function useEvents() {
@@ -226,19 +226,19 @@ function useEvent(eventId: string | undefined) {
   return { event };
 }
 function useRunClips(runId: string | undefined) {
-    const clips = useQuery({
-        queryKey: ['clips', runId],
-        queryFn: async () => {
-            const res = await client.api.runs[':runId'].clips.$get({
-                param: { runId: runId! }
-            })
-            return await res.json()
-        },
-        enabled: !!runId,
-    })
-    console.log(clips.data)  
+  const clips = useQuery({
+    queryKey: ["clips", runId],
+    queryFn: async () => {
+      const res = await client.api.runs[":runId"].clips.$get({
+        param: { runId: runId! },
+      });
+      return await res.json();
+    },
+    enabled: !!runId,
+  });
+  console.log(clips.data);
 
-    return { clips }
+  return { clips };
 }
 // Hook for creating event athletes (bulk creation)
 function useCreateEventAthletes(eventId: string) {
@@ -287,7 +287,6 @@ function useCreateEventRoute(eventId: string) {
     },
   });
 
-
   return { createEventRoute };
   return { createEventRoute };
 }
@@ -307,6 +306,5 @@ export {
   useTurn,
   useCreateEventAthletes,
   useCreateEventRoute,
-  useRunClips
+  useRunClips,
 };
-
