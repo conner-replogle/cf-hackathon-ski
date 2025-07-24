@@ -51,7 +51,7 @@ export default function SelectTrailAndTurnPage() {
   );
 
   const selectedRouteId = form.watch("route");
-  const { turns } = useTurns(selectedRouteId);
+  const { turns } = useTurns(selectedRouteId ? String(selectedRouteId) : undefined);
   const turnsData = useMemo(
     () =>
       turns.data
