@@ -41,12 +41,14 @@ function useEvents() {
   return { events, createEvent };
 }
 
-function useRuns() {
+function useRuns(routeId?: string, athleteId?: string) {
   const runs = useQuery<Run[], Error>({
-    queryKey: ["runs"],
+    queryKey: ["runs", routeId, athleteId],
     queryFn: async () => {
-      const res = await client.api.runs.$get();
-      if (!res.ok) throw new Error("Failed to fetch runs");
+      const res = await client.api.runs.$get({
+        query: { route_id: routeId, athlete_id: athleteId },
+      });
+
       return await res.json();
     },
   });

@@ -26,3 +26,5 @@ dist-ssr
 .wrangler
 .dev.vars*
 seed/videos/*
+
+drizzle
