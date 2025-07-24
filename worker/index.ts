@@ -519,7 +519,7 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
         .bind(turnId)
         .first();
       if (!turn) return c.json({ error: "Turn not found" }, 404);
-      const r2Key = `runs/${runId}/turns/${turnId}.mp4`;
+      const r2Key = `${runId}/${turnId}.mp4`;
       await c.env.VIDEOS.put(r2Key, videoFile.stream(), {
         httpMetadata: { contentType: videoFile.type },
       });
