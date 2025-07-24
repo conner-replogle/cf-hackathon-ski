@@ -1,665 +1,783 @@
 import { Hono } from "hono";
+import { drizzle } from "drizzle-orm/d1";
+import * as schema from "./schema";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import {
-  EventSchema,
-  AthleteSchema,
-  RouteSchema,
-  TurnSchema,
-  EventWithRelationsSchema,
-  RouteWithTurnsSchema,
-  CreateEventRequestSchema,
-  CreateEventAthletesRequestSchema,
-  CreateRouteRequestSchema,
-  RunSchema,
-  RunWithDetailsSchema,
-  CreateRunRequestSchema,
-  ClipSchema,
-  ClipR2ResultSchema,
-} from "./schema";
-import type { Clip } from "./types";
+import { and, eq } from "drizzle-orm";
 
-type Bindings = {
+type CfBindings = {
   DB: D1Database;
   VIDEOS: R2Bucket;
 };
 
-// Events
-const eventsApp = new Hono<{ Bindings: Bindings }>()
+const app = new Hono<{ Bindings: CfBindings }>();
+
+//#region Events
+const eventsApp = new Hono<{ Bindings: CfBindings }>()
+
+  // List Events
   .get("/", async (c) => {
-    const { results } = await c.env.DB.prepare("SELECT * FROM Events").all();
-    const events = z.array(EventSchema).parse(results);
-    return c.json(events, 200);
-  })
-  .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
-    const { id: eventId } = c.req.valid("param");
-    const eventPromise = c.env.DB.prepare("SELECT * FROM Events WHERE id = ?")
-      .bind(eventId)
-      .first();
-    const athletesPromise = c.env.DB.prepare(
-      "SELECT * FROM Athletes WHERE event_id = ?",
-    )
-      .bind(eventId)
-      .all();
-    const routesPromise = c.env.DB.prepare(
-      "SELECT * FROM Routes WHERE event_id = ?",
-    )
-      .bind(eventId)
-      .all();
+    const d1 = c.env.DB;
+    const db = drizzle(d1, { schema });
 
-    const [eventResult, athletesResult, routesResult] = await Promise.all([
-      eventPromise,
-      athletesPromise,
-      routesPromise,
-    ]);
+    const allEvents = await db.select().from(schema.events).all();
 
-    if (!eventResult) {
-      return c.json({ error: "Event not found" }, 404);
-    }
-
-    const event = EventSchema.parse(eventResult);
-    const athletes = z.array(AthleteSchema).parse(athletesResult.results);
-    const routes = z.array(RouteSchema).parse(routesResult.results);
-
-    const eventWithRelations = EventWithRelationsSchema.parse({
-      ...event,
-      athletes,
-      routes,
+    return c.json({
+      success: true,
+      data: allEvents,
     });
+  })
 
-    return c.json(eventWithRelations, 200);
-  })
-  .post("/", zValidator("json", CreateEventRequestSchema), async (c) => {
-    const { event_name, event_location } = c.req.valid("json");
-    const stmt = c.env.DB.prepare(
-      "INSERT INTO Events (event_name, event_location) VALUES (?, ?) RETURNING *",
-    );
-    const newEvent = await stmt.bind(event_name, event_location).first();
-    return c.json(EventSchema.parse(newEvent), 201);
-  })
-  .post(
-    "/:id/athletes",
-    zValidator("param", z.object({ id: z.string() })),
-    zValidator("json", CreateEventAthletesRequestSchema),
+  // Get Event
+  .get(
+    "/:id",
+    zValidator("param", z.object({ id: z.coerce.number() })),
     async (c) => {
-      const { id: eventId } = c.req.valid("param");
-      const { athletes } = c.req.valid("json");
-      const event = await c.env.DB.prepare("SELECT id FROM Events WHERE id = ?")
-        .bind(eventId)
-        .first();
+      const d1 = c.env.DB;
+      const db = drizzle(d1, { schema });
+
+      const { id } = c.req.valid("param");
+
+      const event = await db
+        .select()
+        .from(schema.events)
+        .where(eq(schema.events.id, id))
+        .get();
+
       if (!event) {
-        return c.json({ error: "Event not found" }, 400);
-      }
-      const stmt = c.env.DB.prepare(
-        "INSERT INTO Athletes (event_id, athlete_name) VALUES (?, ?) RETURNING *",
-      );
-      const statements = athletes.map((name) => stmt.bind(eventId, name));
-      const results = await c.env.DB.batch(statements);
-      const createdAthletes = results.flatMap((result) =>
-        result.results ? z.array(AthleteSchema).parse(result.results) : [],
-      );
-      return c.json(createdAthletes, 201);
-    },
-  )
-  .post(
-    "/:id/routes",
-    zValidator("param", z.object({ id: z.string() })),
-    zValidator("json", CreateRouteRequestSchema),
-    async (c) => {
-      const { id: eventId } = c.req.valid("param");
-      const { route_name, turns } = c.req.valid("json");
-      const event = await c.env.DB.prepare("SELECT id FROM Events WHERE id = ?")
-        .bind(eventId)
-        .first();
-      if (!event) {
-        return c.json({ error: "Event not found" }, 404);
-      }
-      const routeStmt = c.env.DB.prepare(
-        "INSERT INTO Routes (event_id, route_name) VALUES (?, ?) RETURNING *",
-      );
-      const newRouteResult = await routeStmt.bind(eventId, route_name).first();
-      if (!newRouteResult) {
-        return c.json({ error: "Failed to create route" }, 500);
-      }
-      const newRoute = RouteSchema.parse(newRouteResult);
-
-      const turnInsertStmt = c.env.DB.prepare(
-        "INSERT INTO Turns (route_id, turn_order, turn_name, latitude, longitude) VALUES (?, ?, ?, ?, ?) RETURNING *",
-      );
-      const turnStatements = turns.map((turn, index) =>
-        turnInsertStmt.bind(
-          newRoute.id,
-          index,
-          turn.turn_name,
-          turn.latitude,
-          turn.longitude,
-        ),
-      );
-      const turnsResults = (await c.env.DB.batch(turnStatements)).flatMap(
-        (t) => (t.results ? z.array(TurnSchema).parse(t.results) : []),
-      );
-
-      return c.json(
-        RouteWithTurnsSchema.parse({ ...newRoute, turns: turnsResults }),
-        201,
-      );
-    },
-  )
-  .put(
-    "/:id",
-    zValidator("param", z.object({ id: z.string() })),
-    zValidator("json", CreateEventRequestSchema),
-    async (c) => {
-      const { id: eventId } = c.req.valid("param");
-      const { event_name, event_location } = c.req.valid("json");
-      const stmt = c.env.DB.prepare(
-        "UPDATE Events SET event_name = ?, event_location = ? WHERE id = ? RETURNING *",
-      );
-      const updatedEvent = await stmt
-        .bind(event_name, event_location, eventId)
-        .first();
-      if (!updatedEvent) {
-        return c.json({ error: "Event not found" }, 404);
-      }
-      return c.json(EventSchema.parse(updatedEvent), 200);
-    },
-  )
-  .delete(
-    "/:id",
-    zValidator("param", z.object({ id: z.string() })),
-    async (c) => {
-      const { id: eventId } = c.req.valid("param");
-      const stmt = c.env.DB.prepare("DELETE FROM Events WHERE id = ?");
-      const { meta } = await stmt.bind(eventId).run();
-      if (meta.changes === 0) {
-        return c.json({ error: "Event not found" }, 404);
-      }
-      return c.body(null, 204);
-    },
-  );
-
-// Athletes
-const athletesApp = new Hono<{ Bindings: Bindings }>()
-  .get("/", async (c) => {
-    const { results } = await c.env.DB.prepare("SELECT * FROM Athletes").all();
-    return c.json(z.array(AthleteSchema).parse(results), 200);
-  })
-  .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
-    const { id: athleteId } = c.req.valid("param");
-    const athlete = await c.env.DB.prepare(
-      "SELECT * FROM Athletes WHERE id = ?",
-    )
-      .bind(athleteId)
-      .first();
-    if (!athlete) {
-      return c.json({ error: "Athlete not found" }, 404);
-    }
-    return c.json(AthleteSchema.parse(athlete), 200);
-  })
-  .put(
-    "/:id",
-    zValidator("param", z.object({ id: z.string() })),
-    zValidator("json", z.object({ athlete_name: z.string().min(1) })),
-    async (c) => {
-      const { id: athleteId } = c.req.valid("param");
-      const { athlete_name } = c.req.valid("json");
-      const stmt = c.env.DB.prepare(
-        "UPDATE Athletes SET athlete_name = ? WHERE id = ? RETURNING *",
-      );
-      const updatedAthlete = await stmt.bind(athlete_name, athleteId).first();
-      if (!updatedAthlete) {
-        return c.json({ error: "Athlete not found" }, 404);
-      }
-      return c.json(AthleteSchema.parse(updatedAthlete), 200);
-    },
-  )
-  .delete(
-    "/:id",
-    zValidator("param", z.object({ id: z.string() })),
-    async (c) => {
-      const { id: athleteId } = c.req.valid("param");
-      const stmt = c.env.DB.prepare("DELETE FROM Athletes WHERE id = ?");
-      const { meta } = await stmt.bind(athleteId).run();
-      if (meta.changes === 0) {
-        return c.json({ error: "Athlete not found" }, 404);
-      }
-      return c.body(null, 204);
-    },
-  );
-
-// Routes
-const routesApp = new Hono<{ Bindings: Bindings }>()
-  .get(
-    "/",
-    zValidator("query", z.object({ event_id: z.string().optional() })),
-    async (c) => {
-      const { event_id } = c.req.valid("query");
-      if (event_id) {
-        const { results } = await c.env.DB.prepare(
-          "SELECT * FROM Routes WHERE event_id = ?",
-        )
-          .bind(event_id)
-          .all();
-        return c.json(z.array(RouteSchema).parse(results), 200);
-      }
-      const { results } = await c.env.DB.prepare("SELECT * FROM Routes").all();
-      return c.json(z.array(RouteSchema).parse(results), 200);
-    },
-  )
-  .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
-    const { id: routeId } = c.req.valid("param");
-    const routePromise = c.env.DB.prepare("SELECT * FROM Routes WHERE id = ?")
-      .bind(routeId)
-      .first();
-    const turnsPromise = c.env.DB.prepare(
-      "SELECT * FROM Turns WHERE route_id = ? ORDER BY turn_order",
-    )
-      .bind(routeId)
-      .all();
-    const [routeResult, turnsResult] = await Promise.all([
-      routePromise,
-      turnsPromise,
-    ]);
-    if (!routeResult) {
-      return c.json({ error: "Route not found" }, 404);
-    }
-    const route = RouteSchema.parse(routeResult);
-    const turns = z.array(TurnSchema).parse(turnsResult.results);
-    return c.json(RouteWithTurnsSchema.parse({ ...route, turns }), 200);
-  })
-  .put(
-    "/:id",
-    zValidator("param", z.object({ id: z.string() })),
-    zValidator("json", z.object({ route_name: z.string().min(1) })),
-    async (c) => {
-      const { id: routeId } = c.req.valid("param");
-      const { route_name } = c.req.valid("json");
-      const stmt = c.env.DB.prepare(
-        "UPDATE Routes SET route_name = ? WHERE id = ? RETURNING *",
-      );
-      const updatedRoute = await stmt.bind(route_name, routeId).first();
-      if (!updatedRoute) {
-        return c.json({ error: "Route not found" }, 404);
-      }
-      return c.json(RouteSchema.parse(updatedRoute), 200);
-    },
-  )
-  .delete(
-    "/:id",
-    zValidator("param", z.object({ id: z.string() })),
-    async (c) => {
-      const { id: routeId } = c.req.valid("param");
-      const stmt = c.env.DB.prepare("DELETE FROM Routes WHERE id = ?");
-      const { meta } = await stmt.bind(routeId).run();
-      if (meta.changes === 0) {
-        return c.json({ error: "Route not found" }, 404);
-      }
-      return c.body(null, 204);
-    },
-  );
-
-// Turns
-const turnsApp = new Hono<{ Bindings: Bindings }>()
-  .get(
-    "/",
-    zValidator("query", z.object({ route_id: z.string().optional() })),
-    async (c) => {
-      const { route_id } = c.req.valid("query");
-      let results;
-      if (route_id) {
-        results = (
-          await c.env.DB.prepare("SELECT * FROM Turns WHERE route_id = ?")
-            .bind(route_id)
-            .all()
-        ).results;
-      } else {
-        results = (await c.env.DB.prepare("SELECT * FROM Turns").all()).results;
-      }
-      return c.json(z.array(TurnSchema).parse(results), 200);
-    },
-  )
-  .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
-    const { id: turnId } = c.req.valid("param");
-    const turn = await c.env.DB.prepare("SELECT * FROM Turns WHERE id = ?")
-      .bind(turnId)
-      .first();
-    if (!turn) {
-      return c.json({ error: "Turn not found" }, 404);
-    }
-    return c.json(TurnSchema.parse(turn), 200);
-  })
-  .put(
-    "/:id",
-    zValidator("param", z.object({ id: z.string() })),
-    zValidator(
-      "json",
-      z
-        .object({
-          turn_name: z.string().optional(),
-          turn_order: z.number().optional(),
-          latitude: z.number().optional(),
-          longitude: z.number().optional(),
-        })
-        .refine(
-          (data) => Object.keys(data).length > 0,
-          "At least one field to update is required.",
-        ),
-    ),
-    async (c) => {
-      const { id: turnId } = c.req.valid("param");
-      const validData = c.req.valid("json");
-      const updateFields = Object.keys(validData);
-      const bindings = [...Object.values(validData), turnId];
-      const sql = `UPDATE Turns SET ${updateFields
-        .map((field) => `${field} = ?`)
-        .join(", ")} WHERE id = ? RETURNING *`;
-      const stmt = c.env.DB.prepare(sql);
-      const updatedTurn = await stmt.bind(...bindings).first();
-      if (!updatedTurn) {
-        return c.json({ error: "Turn not found" }, 404);
-      }
-      return c.json(TurnSchema.parse(updatedTurn), 200);
-    },
-  )
-  .delete(
-    "/:id",
-    zValidator("param", z.object({ id: z.string() })),
-    async (c) => {
-      const { id: turnId } = c.req.valid("param");
-      const stmt = c.env.DB.prepare("DELETE FROM Turns WHERE id = ?");
-      const { meta } = await stmt.bind(turnId).run();
-      if (meta.changes === 0) {
-        return c.json({ error: "Turn not found" }, 404);
-      }
-      return c.body(null, 204);
-    },
-  );
-
-// Runs & Clips
-const runsApp = new Hono<{ Bindings: Bindings }>()
-  .get("/", async (c) => {
-    const { results } = await c.env.DB.prepare("SELECT * FROM Runs").all();
-    return c.json(z.array(RunSchema).parse(results), 200);
-  })
-  .get(
-    "/event/:eventId",
-    zValidator("param", z.object({ eventId: z.string() })),
-    async (c) => {
-      const { eventId } = c.req.valid("param");
-
-      // First verify the event exists
-      const event = await c.env.DB.prepare("SELECT id FROM Events WHERE id = ?")
-        .bind(eventId)
-        .first();
-      if (!event) {
-        return c.json({ error: "Event not found" }, 404);
+        return c.json({ success: false, error: "Event not found" }, 404);
       }
 
-      // Get runs for the event through routes
-      const { results } = await c.env.DB.prepare(
-        `
-      SELECT r.*, rt.route_name, a.athlete_name 
-      FROM Runs r
-      JOIN Routes rt ON r.route_id = rt.id
-      JOIN Athletes a ON r.athlete_id = a.id
-      WHERE rt.event_id = ?
-      ORDER BY r.run_order
-    `,
-      )
-        .bind(eventId)
-        .all();
-
-      return c.json(z.array(RunWithDetailsSchema).parse(results), 200);
-    },
-  )
-  .get(
-    "/:runId/clips",
-    zValidator("param", z.object({ runId: z.string() })),
-    async (c) => {
-      const { runId } = c.req.valid("param");
-      const { results } = await c.env.DB.prepare(
-        "SELECT * FROM Clips WHERE run_id = ?",
-      )
-        .bind(runId)
-        .all();
-      return c.json(results as unknown as Clip[], 200);
-    },
-  )
-
-  .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
-    const { id: runId } = c.req.valid("param");
-    const run = await c.env.DB.prepare("SELECT * FROM Runs WHERE id = ?")
-      .bind(runId)
-      .first();
-    if (!run) {
-      return c.json({ error: "Run not found" }, 404);
-    }
-    return c.json(RunSchema.parse(run), 200);
-  })
-  .post("/", zValidator("json", CreateRunRequestSchema), async (c) => {
-    const { route_id, athlete_id } = c.req.valid("json");
-
-    // Get the logical next run_order based on runs in the database with the same route_id and athlete_id
-    const lastRun = await c.env.DB.prepare(
-      "SELECT MAX(run_order) as max_run_order FROM Runs WHERE route_id = ? AND athlete_id = ?",
-    )
-      .bind(route_id, athlete_id)
-      .first();
-
-    const run_order = ((lastRun?.max_run_order as number) || 0) + 1;
-
-    const stmt = c.env.DB.prepare(
-      "INSERT INTO Runs (route_id, athlete_id, run_order) VALUES (?, ?, ?) RETURNING *",
-    );
-    const newRun = await stmt.bind(route_id, athlete_id, run_order).first();
-    return c.json(RunSchema.parse(newRun), 201);
-  })
-
-  .delete(
-    "/:id",
-    zValidator("param", z.object({ id: z.string() })),
-    async (c) => {
-      const { id: runId } = c.req.valid("param");
-      const { results } = await c.env.DB.prepare(
-        "SELECT clip_r2 FROM Clips WHERE run_id = ?",
-      )
-        .bind(runId)
-        .all();
-      const clipR2Results = z.array(ClipR2ResultSchema).parse(results);
-      if (clipR2Results?.length > 0) {
-        const keys = clipR2Results.map((r) => r.clip_r2).filter(Boolean);
-        if (keys.length > 0) {
-          await c.env.VIDEOS.delete(keys);
-        }
-      }
-      const { meta } = await c.env.DB.prepare("DELETE FROM Runs WHERE id = ?")
-        .bind(runId)
-        .run();
-      if (meta.changes === 0) {
-        return c.json({ error: "Run not found" }, 404);
-      }
-      return c.body(null, 204);
-    },
-  )
-  .get(
-    "/:runId/turns/:turnId/clips",
-    zValidator("param", z.object({ runId: z.string(), turnId: z.string() })),
-    async (c) => {
-      const { runId, turnId } = c.req.valid("param");
-      const clip = await c.env.DB.prepare(
-        "SELECT clip_r2 FROM Clips WHERE run_id = ? AND turn_id = ?",
-      )
-        .bind(runId, turnId)
-        .first();
-      const parsedClip = ClipR2ResultSchema.safeParse(clip);
-      if (!parsedClip.success || !parsedClip.data.clip_r2) {
-        return c.json({ error: "Clip not found" }, 404);
-      }
-      const r2Object = await c.env.VIDEOS.get(parsedClip.data.clip_r2);
-      if (r2Object === null) {
-        return c.json({ error: "Clip file not found in storage" }, 404);
-      }
-      c.header("Content-Type", r2Object.httpMetadata?.contentType);
-      c.header("Content-Length", r2Object.size.toString());
-      return c.body(r2Object.body);
-    },
-  )
-  .post(
-    "/:runId/turns/:turnId/clips",
-    zValidator("param", z.object({ runId: z.string(), turnId: z.string() })),
-    zValidator("form", z.object({ video: z.instanceof(File) })),
-    async (c) => {
-      const { runId, turnId } = c.req.valid("param");
-      const { video: videoFile } = c.req.valid("form");
-      const run = await c.env.DB.prepare("SELECT id FROM Runs WHERE id = ?")
-        .bind(runId)
-        .first();
-      if (!run) return c.json({ error: "Run not found" }, 404);
-      const turn = await c.env.DB.prepare("SELECT id FROM Turns WHERE id = ?")
-        .bind(turnId)
-        .first();
-      if (!turn) return c.json({ error: "Turn not found" }, 404);
-      const r2Key = `${runId}/${turnId}.mp4`;
-      await c.env.VIDEOS.put(r2Key, videoFile.stream(), {
-        httpMetadata: { contentType: videoFile.type },
+      return c.json({
+        success: true,
+        data: event,
       });
-      const stmt = c.env.DB.prepare(
-        "INSERT OR REPLACE INTO Clips (run_id, turn_id, clip_r2) VALUES (?, ?, ?) RETURNING *",
-      );
-      const newClip = await stmt.bind(runId, turnId, r2Key).first();
-      return c.json(ClipSchema.parse(newClip), 201);
-    },
+    }
   )
-  .delete(
-    "/:runId/turns/:turnId/clips",
-    zValidator("param", z.object({ runId: z.string(), turnId: z.string() })),
-    async (c) => {
-      const { runId, turnId } = c.req.valid("param");
-      const clip = await c.env.DB.prepare(
-        "SELECT clip_r2 FROM Clips WHERE run_id = ? AND turn_id = ?",
-      )
-        .bind(runId, turnId)
-        .first();
-      const parsedClip = ClipR2ResultSchema.safeParse(clip);
-      if (parsedClip.success && parsedClip.data.clip_r2) {
-        await c.env.VIDEOS.delete(parsedClip.data.clip_r2);
-      }
-      const { meta } = await c.env.DB.prepare(
-        "DELETE FROM Clips WHERE run_id = ? AND turn_id = ?",
-      )
-        .bind(runId, turnId)
-        .run();
-      if (meta.changes === 0) {
-        return c.json({ error: "Clip not found" }, 404);
-      }
-      return c.body(null, 204);
-    },
-  );
 
-// --- Main App ---
-const app = new Hono<{ Bindings: Bindings }>()
-  .onError((err, c) => {
-    if (err instanceof z.ZodError) {
-      return c.json({ error: "Invalid input", details: err.errors }, 400);
+  // Post Event
+  .post("/", zValidator("json", schema.insertEventsSchema), async (c) => {
+    const d1 = c.env.DB;
+    const db = drizzle(d1, { schema });
+
+    const event = c.req.valid("json");
+
+    const [createdEvent] = await db
+      .insert(schema.events)
+      .values(event)
+      .returning();
+
+    if (!createdEvent) {
+      return c.json({ success: false, error: "Failed to create event" }, 500);
     }
-    if (
-      err instanceof Error &&
-      err.message.includes("UNIQUE constraint failed")
-    ) {
-      return c.json(
-        { error: "A resource with the provided details already exists." },
-        409,
-      );
-    }
-    console.error(err);
+
     return c.json(
       {
-        error: "Internal Server Error",
-        message:
-          err instanceof Error ? err.message : "An unknown error occurred",
+        success: true,
+        data: createdEvent,
       },
-      500,
+      201
     );
   })
-  .route("/api/events", eventsApp)
-  .route("/api/athletes", athletesApp)
-  .route("/api/routes", routesApp)
-  .route("/api/turns", turnsApp)
-  .route("/api/runs", runsApp)
-  .get("/api/videos/:runId/:turnId", async (c) => {
-    const runId = c.req.param("runId");
-    const turnId = c.req.param("turnId");
 
-    try {
-      const range = c.req.header("range");
-      const videoObject = await c.env.VIDEOS.get(`${runId}/${turnId}`);
+  // Update Event
+  .put(
+    "/:id",
+    zValidator("param", z.object({ id: z.coerce.number() })),
+    zValidator("json", schema.insertEventsSchema.partial()),
+    async (c) => {
+      const d1 = c.env.DB;
+      const db = drizzle(d1, { schema });
 
-      if (videoObject === null) {
-        return c.json({ success: false, message: "Video not found" }, 404);
+      const { id } = c.req.valid("param");
+      const eventUpdateData = c.req.valid("json");
+
+      const [updatedEvent] = await db
+        .update(schema.events)
+        .set(eventUpdateData)
+        .where(eq(schema.events.id, id))
+        .returning();
+
+      if (!updatedEvent) {
+        return c.json({ success: false, error: "Event not found" }, 404);
       }
 
-      c.header("Accept-Ranges", "bytes");
-      c.header(
-        "Content-Type",
-        videoObject.httpMetadata?.contentType || "application/octet-stream",
+      return c.json({
+        success: true,
+        data: updatedEvent,
+      });
+    }
+  )
+
+  // Delete Event
+  .delete(
+    "/:id",
+    zValidator("param", z.object({ id: z.coerce.number() })),
+    async (c) => {
+      const d1 = c.env.DB;
+      const db = drizzle(d1, { schema });
+      const { id } = c.req.valid("param");
+
+      const [deletedEvent] = await db
+        .delete(schema.events)
+        .where(eq(schema.events.id, id))
+        .returning();
+
+      if (!deletedEvent) {
+        return c.json({ success: false, error: "Event not found" }, 404);
+      }
+
+      return c.json({
+        success: true,
+        data: deletedEvent,
+      });
+    }
+  );
+//#endregion Events
+
+//#region Athletes
+const athletesApp = new Hono<{ Bindings: CfBindings }>()
+
+  // List Athletes
+  .get("/", async (c) => {
+    const d1 = c.env.DB;
+    const db = drizzle(d1, { schema });
+
+    const allAthletes = await db.select().from(schema.athletes).all();
+
+    return c.json({
+      success: true,
+      data: allAthletes,
+    });
+  })
+
+  // Get Athlete
+  .get(
+    "/:id",
+    zValidator("param", z.object({ id: z.coerce.number() })),
+    async (c) => {
+      const d1 = c.env.DB;
+      const db = drizzle(d1, { schema });
+
+      const { id } = c.req.valid("param");
+
+      const athlete = await db
+        .select()
+        .from(schema.athletes)
+        .where(eq(schema.athletes.id, id))
+        .get();
+
+      if (!athlete) {
+        return c.json({ success: false, error: "Athlete not found" }, 404);
+      }
+
+      return c.json({
+        success: true,
+        data: athlete,
+      });
+    }
+  )
+
+  // Create Athlete
+  .post("/", zValidator("json", schema.insertAthletesSchema), async (c) => {
+    const d1 = c.env.DB;
+    const db = drizzle(d1, { schema });
+
+    const athlete = c.req.valid("json");
+
+    const [createdAthlete] = await db
+      .insert(schema.athletes)
+      .values(athlete)
+      .returning();
+
+    if (!createdAthlete) {
+      return c.json({ success: false, error: "Failed to create athlete" }, 500);
+    }
+
+    return c.json(
+      {
+        success: true,
+        data: createdAthlete,
+      },
+      201
+    );
+  })
+
+  // Update Athlete
+  .put(
+    "/:id",
+    zValidator("param", z.object({ id: z.coerce.number() })),
+    zValidator("json", schema.insertAthletesSchema.partial()),
+    async (c) => {
+      const d1 = c.env.DB;
+      const db = drizzle(d1, { schema });
+
+      const { id } = c.req.valid("param");
+      const athleteUpdateData = c.req.valid("json");
+
+      const [updatedAthlete] = await db
+        .update(schema.athletes)
+        .set(athleteUpdateData)
+        .where(eq(schema.athletes.id, id))
+        .returning();
+
+      if (!updatedAthlete) {
+        return c.json({ success: false, error: "Athlete not found" }, 404);
+      }
+
+      return c.json({
+        success: true,
+        data: updatedAthlete,
+      });
+    }
+  )
+
+  // Delete Athlete
+  .delete(
+    "/:id",
+    zValidator("param", z.object({ id: z.coerce.number() })),
+    async (c) => {
+      const d1 = c.env.DB;
+      const db = drizzle(d1, { schema });
+      const { id } = c.req.valid("param");
+
+      const [deletedAthlete] = await db
+        .delete(schema.athletes)
+        .where(eq(schema.athletes.id, id))
+        .returning();
+
+      if (!deletedAthlete) {
+        return c.json({ success: false, error: "Athlete not found" }, 404);
+      }
+
+      return c.json({
+        success: true,
+        data: deletedAthlete,
+      });
+    }
+  );
+//#endregion Athletes
+
+//#region Events_Athletes (Junction Table)
+const eventsAthletesApp = new Hono<{ Bindings: CfBindings }>()
+
+  // Link an Athlete to an Event (Create)
+  .post(
+    "/event/athletes",
+    zValidator("json", schema.insertEventsToAthletesSchema),
+    async (c) => {
+      const d1 = c.env.DB;
+      const db = drizzle(d1, { schema });
+
+      const linkData = c.req.valid("json");
+
+      const [createdLink] = await db
+        .insert(schema.eventsToAthletes)
+        .values(linkData)
+        .returning();
+
+      if (!createdLink) {
+        return c.json(
+          { success: false, error: "Failed to link athlete to event" },
+          500
+        );
+      }
+
+      return c.json(
+        {
+          success: true,
+          data: createdLink,
+        },
+        201
       );
-      c.header("ETag", videoObject.httpEtag);
+    }
+  )
 
-      if (range) {
-        const match = /^bytes=(\d+)-(\d*)$/.exec(range);
-        if (match) {
-          const start = parseInt(match[1], 10);
-          const end = match[2] ? parseInt(match[2], 10) : videoObject.size - 1;
+  // Get all Athletes for a specific Event (Read)
+  .get(
+    "/event/:eventId/athletes",
+    zValidator("param", z.object({ eventId: z.coerce.number() })),
+    async (c) => {
+      const d1 = c.env.DB;
+      const db = drizzle(d1, { schema });
 
-          if (start >= videoObject.size || end >= videoObject.size) {
-            return new Response("Range Not Satisfiable", {
-              status: 416,
-              headers: { "Content-Range": `bytes */${videoObject.size}` },
-            });
-          }
+      const { eventId } = c.req.valid("param");
 
-          const contentLength = end - start + 1;
-          const rangedObject = await c.env.VIDEOS.get(`${runId}/${turnId}`, {
-            range: { offset: start, length: contentLength },
-          });
+      const athletesInEvent = await db
+        .select({
+          athleteId: schema.athletes.id,
+          athleteName: schema.athletes.athleteName,
+        })
+        .from(schema.eventsToAthletes)
+        .leftJoin(
+          schema.athletes,
+          eq(schema.eventsToAthletes.athleteId, schema.athletes.id)
+        )
+        .where(eq(schema.eventsToAthletes.eventId, eventId));
 
-          if (rangedObject === null) {
-            return new Response("Range Not Satisfiable", {
-              status: 416,
-              headers: { "Content-Range": `bytes */${videoObject.size}` },
-            });
-          }
+      return c.json({
+        success: true,
+        data: athletesInEvent,
+      });
+    }
+  )
 
-          return new Response(rangedObject.body, {
-            status: 206,
-            headers: {
-              "Content-Range": `bytes ${start}-${end}/${videoObject.size}`,
-              "Content-Length": contentLength.toString(),
-              "Content-Type":
-                videoObject.httpMetadata?.contentType ||
-                "application/octet-stream",
-              "Accept-Ranges": "bytes",
-              ETag: videoObject.httpEtag,
-            },
-          });
-        }
+  // Unlink an Athlete from an Event (Delete)
+  .delete(
+    "/events/athlete",
+    zValidator("json", schema.insertEventsToAthletesSchema),
+    async (c) => {
+      const d1 = c.env.DB;
+      const db = drizzle(d1, { schema });
+      const { eventId, athleteId } = c.req.valid("json");
+
+      const [deletedLink] = await db
+        .delete(schema.eventsToAthletes)
+        .where(
+          and(
+            eq(schema.eventsToAthletes.eventId, eventId),
+            eq(schema.eventsToAthletes.athleteId, athleteId)
+          )
+        )
+        .returning();
+
+      if (!deletedLink) {
+        return c.json({ success: false, error: "Link not found" }, 404);
       }
 
-      // No range header, or invalid range, serve the full video
-      c.header("Content-Length", String(videoObject.size));
-      return c.body(videoObject.body, 200);
-    } catch (e: any) {
-      console.error("Error fetching video:", e);
+      return c.json({
+        success: true,
+        data: deletedLink,
+      });
+    }
+  );
+//#endregion Events_Athletes
+
+//#region Routes
+const createRouteWithTurnsSchema = z.object({
+  // The API receives 'name' and maps it to the 'routeName' column.
+  name: z.string().min(1, { message: "Route name cannot be empty." }),
+  eventId: z.number(),
+  turns: z
+    .array(
+      z.object({
+        turnOrder: z.number().int().positive(),
+        turnName: z.string().min(1),
+        latitude: z.number(),
+        longitude: z.number(),
+      })
+    )
+    .min(1, { message: "A route must have at least one turn." }),
+});
+
+const updateRouteWithTurnsSchema = createRouteWithTurnsSchema.omit({
+  eventId: true,
+});
+
+const routesApp = new Hono<{ Bindings: CfBindings }>()
+
+  // Post Route
+  .post("/", zValidator("json", createRouteWithTurnsSchema), async (c) => {
+    const d1 = c.env.DB;
+    const db = drizzle(d1, { schema });
+    const { name, eventId, turns } = c.req.valid("json");
+
+    const newRouteWithTurns = await db.transaction(async (tx) => {
+      const [newRoute] = await tx
+        .insert(schema.routes)
+        .values({ routeName: name, eventId })
+        .returning();
+
+      if (!newRoute) {
+        tx.rollback();
+        return null;
+      }
+
+      const turnsToInsert = turns.map((turn) => ({
+        ...turn,
+        routeId: newRoute.id,
+      }));
+
+      const newTurns = await tx
+        .insert(schema.turns)
+        .values(turnsToInsert)
+        .returning();
+
+      return { ...newRoute, turns: newTurns };
+    });
+
+    if (!newRouteWithTurns) {
+      return c.json({ success: false, error: "Failed to create route" }, 500);
+    }
+
+    return c.json(
+      {
+        success: true,
+        data: newRouteWithTurns,
+      },
+      201
+    );
+  })
+
+  // Update Route
+  .put(
+    "/:id",
+    zValidator("param", z.object({ id: z.coerce.number() })),
+    zValidator("json", updateRouteWithTurnsSchema),
+    async (c) => {
+      const d1 = c.env.DB;
+      const db = drizzle(d1, { schema });
+      const { id } = c.req.valid("param");
+      const { name, turns } = c.req.valid("json");
+
+      const updatedRouteWithTurns = await db.transaction(async (tx) => {
+        const [updatedRoute] = await tx
+          .update(schema.routes)
+          .set({ routeName: name })
+          .where(eq(schema.routes.id, id))
+          .returning();
+
+        if (!updatedRoute) {
+          tx.rollback();
+          return null;
+        }
+
+        await tx.delete(schema.turns).where(eq(schema.turns.routeId, id));
+
+        const turnsToInsert = turns.map((turn) => ({
+          ...turn,
+          routeId: id,
+        }));
+
+        const newTurns = await tx
+          .insert(schema.turns)
+          .values(turnsToInsert)
+          .returning();
+
+        return { ...updatedRoute, turns: newTurns };
+      });
+
+      if (!updatedRouteWithTurns) {
+        return c.json({ success: false, error: "Route not found" }, 404);
+      }
+
+      return c.json({
+        success: true,
+        data: updatedRouteWithTurns,
+      });
+    }
+  )
+
+  // Delete Route
+  .delete(
+    "/:id",
+    zValidator("param", z.object({ id: z.coerce.number() })),
+    async (c) => {
+      const d1 = c.env.DB;
+      const db = drizzle(d1, { schema });
+      const { id } = c.req.valid("param");
+
+      const [deletedRoute] = await db
+        .delete(schema.routes)
+        .where(eq(schema.routes.id, id))
+        .returning();
+
+      if (!deletedRoute) {
+        return c.json({ success: false, error: "Route not found" }, 404);
+      }
+
+      return c.json({
+        success: true,
+        data: deletedRoute,
+      });
+    }
+  );
+//#endregion Routes
+
+//#region Runs
+const runsApp = new Hono<{ Bindings: CfBindings }>()
+
+  // List Runs
+  .get("/", async (c) => {
+    const d1 = c.env.DB;
+    const db = drizzle(d1, { schema });
+
+    const allRuns = await db.select().from(schema.runs).all();
+
+    return c.json({
+      success: true,
+      data: allRuns,
+    });
+  })
+
+  // Get Run
+  .get(
+    "/:id",
+    zValidator("param", z.object({ id: z.coerce.number() })),
+    async (c) => {
+      const d1 = c.env.DB;
+      const db = drizzle(d1, { schema });
+
+      const { id } = c.req.valid("param");
+
+      const run = await db
+        .select()
+        .from(schema.runs)
+        .where(eq(schema.runs.id, id))
+        .get();
+
+      if (!run) {
+        return c.json({ success: false, error: "Run not found" }, 404);
+      }
+
+      return c.json({
+        success: true,
+        data: run,
+      });
+    }
+  )
+
+  // Create Run
+  .post("/", zValidator("json", schema.insertRunsSchema), async (c) => {
+    const d1 = c.env.DB;
+    const db = drizzle(d1, { schema });
+
+    const run = c.req.valid("json");
+
+    const [createdRun] = await db.insert(schema.runs).values(run).returning();
+
+    if (!createdRun) {
+      return c.json({ success: false, error: "Failed to create run" }, 500);
+    }
+
+    return c.json(
+      {
+        success: true,
+        data: createdRun,
+      },
+      201
+    );
+  })
+
+  // Update Run
+  .put(
+    "/:id",
+    zValidator("param", z.object({ id: z.coerce.number() })),
+    zValidator("json", schema.insertRunsSchema.partial()),
+    async (c) => {
+      const d1 = c.env.DB;
+      const db = drizzle(d1, { schema });
+
+      const { id } = c.req.valid("param");
+      const runUpdateData = c.req.valid("json");
+
+      const [updatedRun] = await db
+        .update(schema.runs)
+        .set(runUpdateData)
+        .where(eq(schema.runs.id, id))
+        .returning();
+
+      if (!updatedRun) {
+        return c.json({ success: false, error: "Run not found" }, 404);
+      }
+
+      return c.json({
+        success: true,
+        data: updatedRun,
+      });
+    }
+  )
+
+  // Delete Run
+  .delete(
+    "/:id",
+    zValidator("param", z.object({ id: z.coerce.number() })),
+    async (c) => {
+      const d1 = c.env.DB;
+      const db = drizzle(d1, { schema });
+      const { id } = c.req.valid("param");
+
+      const [deletedRun] = await db
+        .delete(schema.runs)
+        .where(eq(schema.runs.id, id))
+        .returning();
+
+      if (!deletedRun) {
+        return c.json({ success: false, error: "Run not found" }, 404);
+      }
+
+      return c.json({
+        success: true,
+        data: deletedRun,
+      });
+    }
+  );
+//#endregion Runs
+
+//#region Clips
+const clipFormSchema = z.object({
+  turnId: z.coerce.number(),
+  runId: z.coerce.number(),
+  video: z.instanceof(File, { message: "Video file is required" }),
+});
+
+const clipUpdateFormSchema = z.object({
+  video: z.instanceof(File, { message: "New video file is required" }),
+});
+
+const clipsApp = new Hono<{ Bindings: CfBindings }>()
+
+  // Create Clip (and upload video)
+  .post("/", zValidator("form", clipFormSchema), async (c) => {
+    const { DB, VIDEOS } = c.env;
+    const db = drizzle(DB, { schema });
+    const { turnId, runId, video } = c.req.valid("form");
+
+    // A clip for a given turn and run should be unique.
+    const existing = await db
+      .select({ runId: schema.clips.runId, turnId: schema.clips.turnId })
+      .from(schema.clips)
+      .where(
+        and(eq(schema.clips.runId, runId), eq(schema.clips.turnId, turnId))
+      )
+      .get();
+    if (existing) {
       return c.json(
         {
           success: false,
-          message: "An error occurred while fetching the video",
-          error: e.message,
+          error: "A clip for this run and turn already exists",
         },
-        500,
+        409
       );
     }
-  });
 
-export type AppType = typeof app;
+    const key = `clips/run-${runId}/turn-${turnId}/${crypto.randomUUID()}-${
+      video.name
+    }`;
+
+    try {
+      await VIDEOS.put(key, await video.arrayBuffer(), {
+        httpMetadata: { contentType: video.type },
+      });
+    } catch (e) {
+      return c.json({ success: false, error: "Failed to upload video" }, 500);
+    }
+
+    const [createdClip] = await db
+      .insert(schema.clips)
+      .values({ turnId, runId, clipR2: key })
+      .returning();
+
+    if (!createdClip) {
+      await VIDEOS.delete(key); // Clean up orphaned R2 object
+      return c.json(
+        { success: false, error: "Failed to create clip in DB" },
+        500
+      );
+    }
+
+    return c.json({ success: true, data: createdClip }, 201);
+  })
+
+  // Get a specific clip's details
+  .get(
+    "/:runId/:turnId",
+    zValidator(
+      "param",
+      z.object({ runId: z.coerce.number(), turnId: z.coerce.number() })
+    ),
+    async (c) => {
+      const { DB } = c.env;
+      const db = drizzle(DB, { schema });
+      const { runId, turnId } = c.req.valid("param");
+
+      const clip = await db
+        .select()
+        .from(schema.clips)
+        .where(
+          and(eq(schema.clips.runId, runId), eq(schema.clips.turnId, turnId))
+        )
+        .get();
+
+      if (!clip) {
+        return c.json({ success: false, error: "Clip not found" }, 404);
+      }
+
+      return c.json({ success: true, data: clip });
+    }
+  )
+
+  // Update a Clip's video
+  .put(
+    "/:runId/:turnId",
+    zValidator(
+      "param",
+      z.object({ runId: z.coerce.number(), turnId: z.coerce.number() })
+    ),
+    zValidator("form", clipUpdateFormSchema),
+    async (c) => {
+      const { DB, VIDEOS } = c.env;
+      const db = drizzle(DB, { schema });
+      const { runId, turnId } = c.req.valid("param");
+      const { video } = c.req.valid("form");
+
+      const existingClip = await db
+        .select({ clipR2: schema.clips.clipR2 })
+        .from(schema.clips)
+        .where(
+          and(eq(schema.clips.runId, runId), eq(schema.clips.turnId, turnId))
+        )
+        .get();
+
+      if (!existingClip) {
+        return c.json({ success: false, error: "Clip not found" }, 404);
+      }
+
+      const oldKey = existingClip.clipR2;
+      const newKey = `clips/run-${runId}/turn-${turnId}/${crypto.randomUUID()}-${
+        video.name
+      }`;
+
+      try {
+        await VIDEOS.put(newKey, await video.arrayBuffer(), {
+          httpMetadata: { contentType: video.type },
+        });
+
+        const [updatedClip] = await db
+          .update(schema.clips)
+          .set({ clipR2: newKey })
+          .where(
+            and(eq(schema.clips.runId, runId), eq(schema.clips.turnId, turnId))
+          )
+          .returning();
+
+        if (!updatedClip) {
+          await VIDEOS.delete(newKey); // Clean up if DB update fails
+          return c.json(
+            { success: false, error: "Failed to update clip in DB" },
+            500
+          );
+        }
+
+        // After everything is successful, delete the old video if it existed
+        if (oldKey) {
+          await VIDEOS.delete(oldKey);
+        }
+
+        return c.json({ success: true, data: updatedClip });
+      } catch (e) {
+        // Attempt to clean up the newly uploaded file if any error occurred
+        await VIDEOS.delete(newKey).catch(() => {});
+        return c.json({ success: false, error: "Failed to update video" }, 500);
+      }
+    }
+  );
+//#endregion Clips
+
+app.route("/events", eventsApp);
+app.route("/athletes", athletesApp);
+app.route("/", eventsAthletesApp);
+app.route("/routes", routesApp);
+app.route("/runs", runsApp);
+app.route("/clips", clipsApp);
 export default app;
