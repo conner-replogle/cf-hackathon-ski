@@ -1,96 +1,47 @@
+import { z } from "zod";
+import {
+  EventSchema,
+  AthleteSchema,
+  RouteSchema,
+  TurnSchema,
+  RunSchema,
+  ClipSchema,
+  EventWithRelationsSchema,
+  RouteWithTurnsSchema,
+  RunWithDetailsSchema,
+  CreateEventRequestSchema,
+  CreateAthleteRequestSchema,
+  CreateRouteRequestSchema,
+  CreateRunRequestSchema,
+  CreateClipRequestSchema,
+  CreateEventAthletesRequestSchema,
+  ClipR2ResultSchema,
+} from "./schema";
+
 // Database Entity Types
-export interface Event {
-  id: number;
-  event_name: string;
-  event_location: string;
-}
-
-export interface Athlete {
-  id: number;
-  event_id: number;
-  athlete_name: string;
-}
-
-export interface Route {
-  id: number;
-  event_id: number;
-  route_name: string;
-}
-
-export interface Turn {
-  id: number;
-  route_id: number;
-  turn_order: number;
-  turn_name: string;
-  latitude: number;
-  longitude: number;
-}
-
-export interface Run {
-  id: number;
-  route_id: number;
-  athlete_id: number;
-  run_order: number;
-}
-
-export interface Clip {
-  turn_id: number;
-  run_id: number;
-  clip_r2: string | null;
-}
+export type Event = z.infer<typeof EventSchema>;
+export type Athlete = z.infer<typeof AthleteSchema>;
+export type Route = z.infer<typeof RouteSchema>;
+export type Turn = z.infer<typeof TurnSchema>;
+export type Run = z.infer<typeof RunSchema>;
+export type Clip = z.infer<typeof ClipSchema>;
 
 // Extended Types with Relations
-export interface EventWithRelations extends Event {
-  athletes: Athlete[];
-  routes: Route[];
-}
-
-export interface RouteWithTurns extends Route {
-  turns: Turn[];
-}
-
-export interface RunWithDetails extends Run {
-  athlete_name: string;
-  route_name: string;
-  event_name: string;
-}
+export type EventWithRelations = z.infer<typeof EventWithRelationsSchema>;
+export type RouteWithTurns = z.infer<typeof RouteWithTurnsSchema>;
+export type RunWithDetails = z.infer<typeof RunWithDetailsSchema>;
 
 // API Request Types
-export interface CreateEventRequest {
-  event_name: string;
-  event_location: string;
-}
+export type CreateEventRequest = z.infer<typeof CreateEventRequestSchema>;
+export type CreateAthleteRequest = z.infer<typeof CreateAthleteRequestSchema>;
+export type CreateRouteRequest = z.infer<typeof CreateRouteRequestSchema>;
+export type CreateRunRequest = z.infer<typeof CreateRunRequestSchema>;
+export type CreateClipRequest = z.infer<typeof CreateClipRequestSchema>;
+export type CreateEventAthletesRequest = z.infer<
+  typeof CreateEventAthletesRequestSchema
+>;
 
-export interface CreateAthleteRequest {
-  athlete_name: string;
-}
-
-export interface CreateRouteRequest {
-  route_name: string;
-  turns: CreateTurnRequest[];
-}
-
-export interface CreateTurnRequest {
-  turn_name: string;
-  latitude: number;
-  longitude: number;
-}
-
-export interface CreateRunRequest {
-  route_id: number;
-  athlete_id: number;
-  run_order: number;
-}
-
-export interface CreateClipRequest {
-  turn_id: number;
-  run_id: number;
-  clip_r2?: string;
-}
-
-export interface CreateEventAthletesRequest {
-  athletes: string[];
-}
+export type ClipR2Result = z.infer<typeof ClipR2ResultSchema>;
 
 // API Response Types
 export interface ApiResponse<T> {
@@ -148,28 +99,3 @@ export type DatabaseResult<T> = {
     rows_written: number;
   };
 };
-
-// Type Guards
-export function isEvent(obj: any): obj is Event {
-  return obj && typeof obj.id === 'number' && typeof obj.event_name === 'string' && typeof obj.event_location === 'string';
-}
-
-export function isAthlete(obj: any): obj is Athlete {
-  return obj && typeof obj.id === 'number' && typeof obj.event_id === 'number' && typeof obj.athlete_name === 'string';
-}
-
-export function isRoute(obj: any): obj is Route {
-  return obj && typeof obj.id === 'number' && typeof obj.event_id === 'number' && typeof obj.route_name === 'string';
-}
-
-export function isTurn(obj: any): obj is Turn {
-  return obj && typeof obj.id === 'number' && typeof obj.route_id === 'number' && typeof obj.turn_order === 'number' && typeof obj.turn_name === 'string' && typeof obj.latitude === 'number' && typeof obj.longitude === 'number';
-}
-
-export function isRun(obj: any): obj is Run {
-  return obj && typeof obj.id === 'number' && typeof obj.route_id === 'number' && typeof obj.athlete_id === 'number' && typeof obj.run_order === 'number';
-}
-
-export function isClip(obj: any): obj is Clip {
-  return obj && typeof obj.turn_id === 'number' && typeof obj.run_id === 'number';
-}
