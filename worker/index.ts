@@ -10,7 +10,6 @@ type CfBindings = {
   VIDEOS: R2Bucket;
 };
 
-const app = new Hono<{ Bindings: CfBindings }>();
 
 //#region Events
 const eventsApp = new Hono<{ Bindings: CfBindings }>()
@@ -773,11 +772,14 @@ const clipsApp = new Hono<{ Bindings: CfBindings }>()
     }
   );
 //#endregion Clips
-
-app.route("/events", eventsApp);
-app.route("/athletes", athletesApp);
-app.route("/", eventsAthletesApp);
-app.route("/routes", routesApp);
-app.route("/runs", runsApp);
-app.route("/clips", clipsApp);
+const app = new Hono<{ Bindings: CfBindings }>()
+.route("api/events", eventsApp)
+.route("api/athletes", athletesApp)
+.route("api/", eventsAthletesApp)
+.route("api/routes", routesApp)
+.route("api/runs", runsApp)
+.route("api/clips", clipsApp);
 export default app;
+
+export type AppType = typeof app;
+
