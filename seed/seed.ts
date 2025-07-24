@@ -1,10 +1,12 @@
 import { hc } from "hono/client";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from 'url';
 import type { AppType } from "../worker";
 import type { 
   CreateEventRequest, 
   CreateAthleteRequest, 
   CreateRouteRequest, 
-  CreateTurnRequest, 
   CreateRunRequest,
   Event,
   Athlete,
@@ -14,6 +16,10 @@ import type {
 
 // Hono RPC Client setup
 const client = hc<AppType>('http://localhost:5173');
+
+// ESM-compatible __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Seed data based on existing mock structure but enhanced for skiing events
 const seedEvents = [
@@ -170,52 +176,93 @@ async function seedDatabase() {
       }
     }
     
-    // Step 4: Create Runs (athletes on routes)
-    log('Creating runs...');
+    // Step 4: Create Runs and Clips
+    log('Creating runs and clips...');
+    const createdRuns: Run[] = [];
     let runOrder = 1;
-    
+    let createdClipsCount = 0;
+
     for (const event of createdEvents) {
-      // Get athletes for this event
       const eventAthletes = createdAthletes.filter(athlete => athlete.event_id === event.id);
-      // Get routes for this event  
       const eventRoutes = createdRoutes.filter(route => route.event_id === event.id);
-      
-      // Create runs for each athlete on each route
-      for (const athlete of eventAthletes.slice(0, 3)) { // Limit to first 3 athletes per event
-        for (const route of eventRoutes.slice(0, 2)) { // Limit to first 2 routes per athlete
-          try {
+
+      for (const athlete of eventAthletes) {
+        if (Math.random() < 0.3) {
+          continue;
+        }
+        for (const route of eventRoutes) {
             const runData: CreateRunRequest = {
               route_id: route.id,
               athlete_id: athlete.id,
-              run_order: runOrder++
+              run_order: runOrder++,
             };
-            
-            const response = await client.api.runs.$post({
-              json: runData
-            });
-            
-            if (response.ok) {
-              const result = await response.json() as Run;
+
+            const runResponse = await client.api.runs.$post({ json: runData });
+
+            if (runResponse.ok) {
+              const runResult = (await runResponse.json()) as Run;
+              createdRuns.push(runResult);
               logSuccess(`Created run for ${athlete.athlete_name} on ${route.route_name}`);
+
+              // Fetch full route details to get turns
+              const routeDetailsResponse = await client.api.routes[':id'].$get({ param: { id: route.id.toString() } });
+              if (routeDetailsResponse.ok) {
+                const routeWithTurns = (await routeDetailsResponse.json()) as any; // Bypassing incorrect type definition
+                const turns = routeWithTurns.turns ?? [];
+
+                for (const turn of turns) {
+                  
+                  const videoFiles = fs.readdirSync(path.join(__dirname, "videos")).filter(f => f.endsWith('.MP4'));
+                  if (videoFiles.length === 0) {
+                    logError("No video files found in seed/videos directory. Skipping clip creation.", null);
+                    continue;
+                  }
+
+                  const videoPath = path.join(__dirname, "videos", videoFiles[createdClipsCount % videoFiles.length]);
+                  const videoBuffer = fs.readFileSync(videoPath);
+                  const videoBlob = new Blob([videoBuffer], { type: 'video/mp4' });
+
+                  const formData = new FormData();
+                  formData.append('video', videoBlob, path.basename(videoPath));
+
+                  const clipResponse = await client.api.runs[':runId'].turns[':turnId'].clips.$post({
+                    param: { 
+                      runId: runResult.id.toString(), 
+                      turnId: turn.id.toString() 
+                    },
+                    form: { video: videoBlob as any },
+                  });
+
+                  if (clipResponse.ok) {
+                    createdClipsCount++;
+                    log(`  Successfully uploaded clip for turn: ${turn.turn_name}`);
+                  } else {
+                    const errorText = await clipResponse.text();
+                    logError(`  Failed to upload clip for turn: ${turn.turn_name}`, { status: clipResponse.status, error: errorText });
+                  }
+                  await delay(500); // Increased delay for file upload
+                  
+                }
+              } else {
+                logError(`Failed to fetch details for route: ${route.route_name}`, await routeDetailsResponse.text());
+              }
             } else {
-              logError(`Failed to create run for ${athlete.athlete_name}`, await response.text());
+              logError(`Failed to create run for ${athlete.athlete_name}`, await runResponse.text());
             }
-            
             await delay(100);
-          } catch (error) {
-            logError(`Error creating run for ${athlete.athlete_name}`, error);
           }
-        }
+        
       }
     }
-    
+
     // Step 5: Summary
-    log('Seeding completed!');
+    log('\n--- Seeding Summary ---');
     logSuccess('Database seeding summary:', {
       events: createdEvents.length,
       athletes: createdAthletes.length,
       routes: createdRoutes.length,
-      estimatedRuns: Math.min(createdAthletes.length, 18) // 3 athletes * 2 routes * 3 events
+      runs: createdRuns.length,
+      clips: createdClipsCount,
     });
     
   } catch (error) {

@@ -11,7 +11,7 @@ export function Watch(){
 
     useEffect(() => {
         if (!eventId) {
-          navigate("/upload/event");
+          navigate("/watch/event");
         }
     }, [eventId, navigate]);
 
@@ -46,14 +46,14 @@ export function Watch(){
                 
                 {eventRuns.data && Array.isArray(eventRuns.data) && eventRuns.data.length > 0 && (
                     <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                        {eventRuns.data.map((run: any) => (
-                            <div key={run.run_id} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-6">
+                        {eventRuns.data.map((run) => (
+                            <div key={run.id} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-6">
                                 <div className="flex items-center justify-between mb-4">
                                     <h3 className="text-lg font-semibold text-gray-900">
-                                        {run.run_name}
+                                        {run.route_name}
                                     </h3>
                                     <span className="text-sm text-gray-500">
-                                        #{run.run_id.slice(-6)}
+                                        #{run.id}
                                     </span>
                                 </div>
                                 
@@ -64,18 +64,14 @@ export function Watch(){
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="font-medium">Trail:</span>
-                                        <span>{run.trail_name || 'Unknown'}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="font-medium">Event:</span>
-                                        <span>{run.event_name || 'Unknown'}</span>
+                                        <span>{run.route_name || 'Unknown'}</span>
                                     </div>
                                 </div>
                                 
                                 <div className="mt-4 pt-4 border-t border-gray-200">
-                                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200">
-                                        View Run Details
-                                    </button>
+                                    <a href={`/watch/${run.id}`} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200">
+                                        Watch Run
+                                    </a>
                                 </div>
                             </div>
                         ))}
