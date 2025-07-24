@@ -412,11 +412,19 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
       return c.json(z.array(RunWithDetailsSchema).parse(results), 200);
     },
   )
-  .get("/:runId/clips", zValidator("param", z.object({ runId: z.string() })), async (c) => {
-    const { runId } = c.req.valid("param");
-    const {results} = await c.env.DB.prepare("SELECT * FROM Clips WHERE run_id = ?").bind(runId).all();
-    return c.json(results as unknown as Clip[], 200);
-  })
+  .get(
+    "/:runId/clips",
+    zValidator("param", z.object({ runId: z.string() })),
+    async (c) => {
+      const { runId } = c.req.valid("param");
+      const { results } = await c.env.DB.prepare(
+        "SELECT * FROM Clips WHERE run_id = ?",
+      )
+        .bind(runId)
+        .all();
+      return c.json(results as unknown as Clip[], 200);
+    },
+  )
 
   .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
     const { id: runId } = c.req.valid("param");
