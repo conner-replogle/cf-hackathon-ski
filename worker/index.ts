@@ -31,17 +31,21 @@ const eventsApp = new Hono<{ Bindings: Bindings }>()
     const events = z.array(EventSchema).parse(results);
     return c.json(events, 200);
   })
-  .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
+  .get("/:id", zValidator("param", z.object({ id: z.number() })), async (c) => {
     const { id: eventId } = c.req.valid("param");
-    const eventPromise = c.env.DB.prepare(
-      "SELECT * FROM Events WHERE id = ?",
-    ).bind(eventId).first();
+    const eventPromise = c.env.DB.prepare("SELECT * FROM Events WHERE id = ?")
+      .bind(Number(eventId))
+      .first();
     const athletesPromise = c.env.DB.prepare(
       "SELECT * FROM Athletes WHERE event_id = ?",
-    ).bind(eventId).all();
+    )
+      .bind(eventId)
+      .all();
     const routesPromise = c.env.DB.prepare(
       "SELECT * FROM Routes WHERE event_id = ?",
-    ).bind(eventId).all();
+    )
+      .bind(eventId)
+      .all();
 
     const [eventResult, athletesResult, routesResult] = await Promise.all([
       eventPromise,
@@ -75,14 +79,14 @@ const eventsApp = new Hono<{ Bindings: Bindings }>()
   })
   .post(
     "/:id/athletes",
-    zValidator("param", z.object({ id: z.string() })),
+    zValidator("param", z.object({ id: z.number() })),
     zValidator("json", CreateEventAthletesRequestSchema),
     async (c) => {
       const { id: eventId } = c.req.valid("param");
       const { athletes } = c.req.valid("json");
-      const event = await c.env.DB.prepare(
-        "SELECT id FROM Events WHERE id = ?",
-      ).bind(eventId).first();
+      const event = await c.env.DB.prepare("SELECT id FROM Events WHERE id = ?")
+        .bind(Number(eventId))
+        .first();
       if (!event) {
         return c.json({ error: "Event not found" }, 400);
       }
@@ -99,14 +103,14 @@ const eventsApp = new Hono<{ Bindings: Bindings }>()
   )
   .post(
     "/:id/routes",
-    zValidator("param", z.object({ id: z.string() })),
+    zValidator("param", z.object({ id: z.number() })),
     zValidator("json", CreateRouteRequestSchema),
     async (c) => {
       const { id: eventId } = c.req.valid("param");
       const { route_name, turns } = c.req.valid("json");
-      const event = await c.env.DB.prepare(
-        "SELECT id FROM Events WHERE id = ?",
-      ).bind(eventId).first();
+      const event = await c.env.DB.prepare("SELECT id FROM Events WHERE id = ?")
+        .bind(Number(eventId))
+        .first();
       if (!event) {
         return c.json({ error: "Event not found" }, 404);
       }
@@ -143,7 +147,7 @@ const eventsApp = new Hono<{ Bindings: Bindings }>()
   )
   .put(
     "/:id",
-    zValidator("param", z.object({ id: z.string() })),
+    zValidator("param", z.object({ id: z.number() })),
     zValidator("json", CreateEventRequestSchema),
     async (c) => {
       const { id: eventId } = c.req.valid("param");
@@ -151,11 +155,9 @@ const eventsApp = new Hono<{ Bindings: Bindings }>()
       const stmt = c.env.DB.prepare(
         "UPDATE Events SET event_name = ?, event_location = ? WHERE id = ? RETURNING *",
       );
-      const updatedEvent = await stmt.bind(
-        event_name,
-        event_location,
-        eventId,
-      ).first();
+      const updatedEvent = await stmt
+        .bind(event_name, event_location, Number(eventId))
+        .first();
       if (!updatedEvent) {
         return c.json({ error: "Event not found" }, 404);
       }
@@ -164,11 +166,11 @@ const eventsApp = new Hono<{ Bindings: Bindings }>()
   )
   .delete(
     "/:id",
-    zValidator("param", z.object({ id: z.string() })),
+    zValidator("param", z.object({ id: z.number() })),
     async (c) => {
       const { id: eventId } = c.req.valid("param");
       const stmt = c.env.DB.prepare("DELETE FROM Events WHERE id = ?");
-      const { meta } = await stmt.bind(eventId).run();
+      const { meta } = await stmt.bind(Number(eventId)).run();
       if (meta.changes === 0) {
         return c.json({ error: "Event not found" }, 404);
       }
@@ -182,12 +184,12 @@ const athletesApp = new Hono<{ Bindings: Bindings }>()
     const { results } = await c.env.DB.prepare("SELECT * FROM Athletes").all();
     return c.json(z.array(AthleteSchema).parse(results), 200);
   })
-  .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
+  .get("/:id", zValidator("param", z.object({ id: z.number() })), async (c) => {
     const { id: athleteId } = c.req.valid("param");
     const athlete = await c.env.DB.prepare(
       "SELECT * FROM Athletes WHERE id = ?",
     )
-      .bind(athleteId)
+      .bind(Number(athleteId))
       .first();
     if (!athlete) {
       return c.json({ error: "Athlete not found" }, 404);
@@ -196,7 +198,7 @@ const athletesApp = new Hono<{ Bindings: Bindings }>()
   })
   .put(
     "/:id",
-    zValidator("param", z.object({ id: z.string() })),
+    zValidator("param", z.object({ id: z.number() })),
     zValidator("json", z.object({ athlete_name: z.string().min(1) })),
     async (c) => {
       const { id: athleteId } = c.req.valid("param");
@@ -204,7 +206,7 @@ const athletesApp = new Hono<{ Bindings: Bindings }>()
       const stmt = c.env.DB.prepare(
         "UPDATE Athletes SET athlete_name = ? WHERE id = ? RETURNING *",
       );
-      const updatedAthlete = await stmt.bind(athlete_name, athleteId).first();
+      const updatedAthlete = await stmt.bind(athlete_name, Number(athleteId)).first();
       if (!updatedAthlete) {
         return c.json({ error: "Athlete not found" }, 404);
       }
@@ -213,11 +215,11 @@ const athletesApp = new Hono<{ Bindings: Bindings }>()
   )
   .delete(
     "/:id",
-    zValidator("param", z.object({ id: z.string() })),
+    zValidator("param", z.object({ id: z.number() })),
     async (c) => {
       const { id: athleteId } = c.req.valid("param");
       const stmt = c.env.DB.prepare("DELETE FROM Athletes WHERE id = ?");
-      const { meta } = await stmt.bind(athleteId).run();
+      const { meta } = await stmt.bind(Number(athleteId)).run();
       if (meta.changes === 0) {
         return c.json({ error: "Athlete not found" }, 404);
       }
@@ -236,7 +238,7 @@ const routesApp = new Hono<{ Bindings: Bindings }>()
         const { results } = await c.env.DB.prepare(
           "SELECT * FROM Routes WHERE event_id = ?",
         )
-          .bind(event_id)
+          .bind(Number(event_id))
           .all();
         return c.json(z.array(RouteSchema).parse(results), 200);
       }
@@ -244,14 +246,16 @@ const routesApp = new Hono<{ Bindings: Bindings }>()
       return c.json(z.array(RouteSchema).parse(results), 200);
     },
   )
-  .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
+  .get("/:id", zValidator("param", z.object({ id: z.number() })), async (c) => {
     const { id: routeId } = c.req.valid("param");
-    const routePromise = c.env.DB.prepare(
-      "SELECT * FROM Routes WHERE id = ?",
-    ).bind(routeId).first();
+    const routePromise = c.env.DB.prepare("SELECT * FROM Routes WHERE id = ?")
+      .bind(Number(routeId))
+      .first();
     const turnsPromise = c.env.DB.prepare(
       "SELECT * FROM Turns WHERE route_id = ? ORDER BY turn_order",
-    ).bind(routeId).all();
+    )
+      .bind(routeId)
+      .all();
     const [routeResult, turnsResult] = await Promise.all([
       routePromise,
       turnsPromise,
@@ -265,7 +269,7 @@ const routesApp = new Hono<{ Bindings: Bindings }>()
   })
   .put(
     "/:id",
-    zValidator("param", z.object({ id: z.string() })),
+    zValidator("param", z.object({ id: z.number() })),
     zValidator("json", z.object({ route_name: z.string().min(1) })),
     async (c) => {
       const { id: routeId } = c.req.valid("param");
@@ -273,7 +277,7 @@ const routesApp = new Hono<{ Bindings: Bindings }>()
       const stmt = c.env.DB.prepare(
         "UPDATE Routes SET route_name = ? WHERE id = ? RETURNING *",
       );
-      const updatedRoute = await stmt.bind(route_name, routeId).first();
+      const updatedRoute = await stmt.bind(route_name, Number(routeId)).first();
       if (!updatedRoute) {
         return c.json({ error: "Route not found" }, 404);
       }
@@ -282,11 +286,11 @@ const routesApp = new Hono<{ Bindings: Bindings }>()
   )
   .delete(
     "/:id",
-    zValidator("param", z.object({ id: z.string() })),
+    zValidator("param", z.object({ id: z.number() })),
     async (c) => {
       const { id: routeId } = c.req.valid("param");
       const stmt = c.env.DB.prepare("DELETE FROM Routes WHERE id = ?");
-      const { meta } = await stmt.bind(routeId).run();
+      const { meta } = await stmt.bind(Number(routeId)).run();
       if (meta.changes === 0) {
         return c.json({ error: "Route not found" }, 404);
       }
@@ -303,21 +307,21 @@ const turnsApp = new Hono<{ Bindings: Bindings }>()
       const { route_id } = c.req.valid("query");
       let results;
       if (route_id) {
-        results = (await c.env.DB.prepare(
-          "SELECT * FROM Turns WHERE route_id = ?",
-        )
-          .bind(route_id)
-          .all()).results;
+        results = (
+          await c.env.DB.prepare("SELECT * FROM Turns WHERE route_id = ?")
+            .bind(Number(route_id))
+            .all()
+        ).results;
       } else {
         results = (await c.env.DB.prepare("SELECT * FROM Turns").all()).results;
       }
       return c.json(z.array(TurnSchema).parse(results), 200);
     },
   )
-  .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
+  .get("/:id", zValidator("param", z.object({ id: z.number() })), async (c) => {
     const { id: turnId } = c.req.valid("param");
     const turn = await c.env.DB.prepare("SELECT * FROM Turns WHERE id = ?")
-      .bind(turnId)
+      .bind(Number(turnId))
       .first();
     if (!turn) {
       return c.json({ error: "Turn not found" }, 404);
@@ -326,7 +330,7 @@ const turnsApp = new Hono<{ Bindings: Bindings }>()
   })
   .put(
     "/:id",
-    zValidator("param", z.object({ id: z.string() })),
+    zValidator("param", z.object({ id: z.number() })),
     zValidator(
       "json",
       z
@@ -345,7 +349,7 @@ const turnsApp = new Hono<{ Bindings: Bindings }>()
       const { id: turnId } = c.req.valid("param");
       const validData = c.req.valid("json");
       const updateFields = Object.keys(validData);
-      const bindings = [...Object.values(validData), turnId];
+      const bindings = [...Object.values(validData), Number(turnId)];
       const sql = `UPDATE Turns SET ${updateFields
         .map((field) => `${field} = ?`)
         .join(", ")} WHERE id = ? RETURNING *`;
@@ -359,11 +363,11 @@ const turnsApp = new Hono<{ Bindings: Bindings }>()
   )
   .delete(
     "/:id",
-    zValidator("param", z.object({ id: z.string() })),
+    zValidator("param", z.object({ id: z.number() })),
     async (c) => {
       const { id: turnId } = c.req.valid("param");
       const stmt = c.env.DB.prepare("DELETE FROM Turns WHERE id = ?");
-      const { meta } = await stmt.bind(turnId).run();
+      const { meta } = await stmt.bind(Number(turnId)).run();
       if (meta.changes === 0) {
         return c.json({ error: "Turn not found" }, 404);
       }
@@ -378,14 +382,14 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
   })
   .get(
     "/event/:eventId",
-    zValidator("param", z.object({ eventId: z.string() })),
+    zValidator("param", z.object({ eventId: z.number() })),
     async (c) => {
       const { eventId } = c.req.valid("param");
 
       // First verify the event exists
-      const event = await c.env.DB.prepare(
-        "SELECT id FROM Events WHERE id = ?",
-      ).bind(eventId).first();
+      const event = await c.env.DB.prepare("SELECT id FROM Events WHERE id = ?")
+        .bind(Number(eventId))
+        .first();
       if (!event) {
         return c.json({ error: "Event not found" }, 404);
       }
@@ -400,15 +404,17 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
       WHERE rt.event_id = ?
       ORDER BY r.run_order
     `,
-      ).bind(eventId).all();
+      )
+        .bind(Number(eventId))
+        .all();
 
       return c.json(z.array(RunWithDetailsSchema).parse(results), 200);
     },
   )
-  .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
+  .get("/:id", zValidator("param", z.object({ id: z.number() })), async (c) => {
     const { id: runId } = c.req.valid("param");
     const run = await c.env.DB.prepare("SELECT * FROM Runs WHERE id = ?")
-      .bind(runId)
+      .bind(Number(runId))
       .first();
     if (!run) {
       return c.json({ error: "Run not found" }, 404);
@@ -417,13 +423,15 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
   })
   .post("/", zValidator("json", CreateRunRequestSchema), async (c) => {
     const { route_id, athlete_id, run_order } = c.req.valid("json");
-    const route = await c.env.DB.prepare(
-      "SELECT id FROM Routes WHERE id = ?",
-    ).bind(route_id).first();
+    const route = await c.env.DB.prepare("SELECT id FROM Routes WHERE id = ?")
+      .bind(route_id)
+      .first();
     if (!route) return c.json({ error: "Route not found" }, 404);
     const athlete = await c.env.DB.prepare(
       "SELECT id FROM Athletes WHERE id = ?",
-    ).bind(athlete_id).first();
+    )
+      .bind(athlete_id)
+      .first();
     if (!athlete) return c.json({ error: "Athlete not found" }, 404);
     const stmt = c.env.DB.prepare(
       "INSERT INTO Runs (route_id, athlete_id, run_order) VALUES (?, ?, ?) RETURNING *",
@@ -434,7 +442,7 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
 
   .delete(
     "/:id",
-    zValidator("param", z.object({ id: z.string() })),
+    zValidator("param", z.object({ id: z.number() })),
     async (c) => {
       const { id: runId } = c.req.valid("param");
       const { results } = await c.env.DB.prepare(
@@ -450,7 +458,7 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
         }
       }
       const { meta } = await c.env.DB.prepare("DELETE FROM Runs WHERE id = ?")
-        .bind(runId)
+        .bind(Number(runId))
         .run();
       if (meta.changes === 0) {
         return c.json({ error: "Run not found" }, 404);
@@ -465,13 +473,13 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
   })
   .get(
     "/:runId/turns/:turnId/clips",
-    zValidator("param", z.object({ runId: z.string(), turnId: z.string() })),
+    zValidator("param", z.object({ runId: z.number(), turnId: z.number() })),
     async (c) => {
       const { runId, turnId } = c.req.valid("param");
       const clip = await c.env.DB.prepare(
         "SELECT * FROM Clips WHERE run_id = ? AND turn_id = ?",
       )
-        .bind(runId, turnId)
+        .bind(Number(runId), Number(turnId))
         .first();
       const parsedClip = ClipSchema.safeParse(clip);
       if (!parsedClip.success || !parsedClip.data.clip_r2) {
@@ -488,17 +496,17 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
   )
   .post(
     "/:runId/turns/:turnId/clips",
-    zValidator("param", z.object({ runId: z.string(), turnId: z.string() })),
+    zValidator("param", z.object({ runId: z.number(), turnId: z.number() })),
     zValidator("form", z.object({ video: z.instanceof(File) })),
     async (c) => {
       const { runId, turnId } = c.req.valid("param");
       const { video: videoFile } = c.req.valid("form");
       const run = await c.env.DB.prepare("SELECT id FROM Runs WHERE id = ?")
-        .bind(runId)
+        .bind(Number(runId))
         .first();
       if (!run) return c.json({ error: "Run not found" }, 404);
       const turn = await c.env.DB.prepare("SELECT id FROM Turns WHERE id = ?")
-        .bind(turnId)
+        .bind(Number(turnId))
         .first();
       if (!turn) return c.json({ error: "Turn not found" }, 404);
       const r2Key = `${runId}/${turnId}.mp4`;
@@ -508,19 +516,19 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
       const stmt = c.env.DB.prepare(
         "INSERT OR REPLACE INTO Clips (run_id, turn_id, clip_r2) VALUES (?, ?, ?) RETURNING *",
       );
-      const newClip = await stmt.bind(runId, turnId, r2Key).first();
+      const newClip = await stmt.bind(Number(runId), Number(turnId), r2Key).first();
       return c.json(ClipSchema.parse(newClip), 201);
     },
   )
   .delete(
     "/:runId/turns/:turnId/clips",
-    zValidator("param", z.object({ runId: z.string(), turnId: z.string() })),
+    zValidator("param", z.object({ runId: z.number(), turnId: z.number() })),
     async (c) => {
       const { runId, turnId } = c.req.valid("param");
       const clip = await c.env.DB.prepare(
         "SELECT clip_r2 FROM Clips WHERE run_id = ? AND turn_id = ?",
       )
-        .bind(runId, turnId)
+        .bind(Number(runId), Number(turnId))
         .first();
       const parsedClip = ClipR2ResultSchema.safeParse(clip);
       if (parsedClip.success && parsedClip.data.clip_r2) {
@@ -529,7 +537,7 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
       const { meta } = await c.env.DB.prepare(
         "DELETE FROM Clips WHERE run_id = ? AND turn_id = ?",
       )
-        .bind(runId, turnId)
+        .bind(Number(runId), Number(turnId))
         .run();
       if (meta.changes === 0) {
         return c.json({ error: "Clip not found" }, 404);
@@ -537,7 +545,6 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
       return c.body(null, 204);
     },
   );
-
 
 // --- Main App ---
 const app = new Hono<{ Bindings: Bindings }>()
@@ -569,7 +576,7 @@ const app = new Hono<{ Bindings: Bindings }>()
   .route("/api/routes", routesApp)
   .route("/api/turns", turnsApp)
   .route("/api/runs", runsApp)
-  .get('/api/videos/:runId/turns/:turnId', async (c) => {
+  .get('/api/videos/:runId/:turnId', async (c) => {
   const runId = c.req.param('runId');
   const turnId = c.req.param('turnId');
 
