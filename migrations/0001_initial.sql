@@ -1,13 +1,20 @@
 CREATE TABLE Events (
     id INTEGER PRIMARY KEY,
     event_name TEXT NOT NULL UNIQUE,
-    event_location TEXT NOT NULL
+    event_location TEXT NOT NULL,
+    event_date DATE TEXT NOT NULL,
 );
 
 CREATE TABLE Athletes (
     id INTEGER PRIMARY KEY,
-    event_id INTEGER NOT NULL,
     athlete_name TEXT NOT NULL,
+);
+
+CREATE TABLE Events_Athletes(
+    athlete_id INTEGER,
+    event_id INTEGER,
+    PRIMARY KEY (athlete_id, event_id),
+    FOREIGN KEY (athlete_id) REFERENCES Athletes(id) ON DELETE CASCADE,
     FOREIGN KEY (event_id) REFERENCES Events(id) ON DELETE CASCADE
 );
 
