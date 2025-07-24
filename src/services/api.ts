@@ -1,4 +1,4 @@
-import { QueryClient, useMutation, useQuery, UseQueryResult } from "@tanstack/react-query";
+import { QueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { hc, type InferRequestType, type InferResponseType } from "hono/client";
 import type { AppType } from "worker";
 import type { Event, Athlete, Route, Turn, Run } from 'worker/types';
