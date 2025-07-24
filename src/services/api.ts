@@ -117,11 +117,15 @@ function useAthlete(athleteId: string | undefined) {
     return { athlete }
 }
 
-function useRoutes() {
+function useRoutes(eventId?: string) {
     const routes = useQuery({
-        queryKey: ['routes'],
+        queryKey: ['routes', eventId],
         queryFn: async () => {
-            const res = await client.api.routes.$get()
+            const res = await client.api.routes.$get({
+                query: {
+                    ...(eventId && { event_id: eventId }),
+                },
+            })
             return await res.json()
         },
     })
@@ -145,11 +149,15 @@ function useRoute(routeId: string | undefined) {
     return { route }
 }
 
-function useTurns() {
+function useTurns(routeId?: string) {
     const turns = useQuery({
-        queryKey: ['turns'],
+        queryKey: ['turns', routeId],
         queryFn: async () => {
-            const res = await client.api.turns.$get()
+            const res = await client.api.turns.$get({
+                query: {
+                    ...(routeId && { route_id: routeId }),
+                },
+            })
             return await res.json()
         },
     })
