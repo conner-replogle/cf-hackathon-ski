@@ -377,10 +377,35 @@ const turnsApp = new Hono<{ Bindings: Bindings }>()
 
 // Runs & Clips
 const runsApp = new Hono<{ Bindings: Bindings }>()
-  .get("/", async (c) => {
-    const { results } = await c.env.DB.prepare("SELECT * FROM Runs").all();
-    return c.json(z.array(RunSchema).parse(results), 200);
-  })
+  .get(
+    "/",
+    zValidator(
+      "query",
+      z.object({
+        route_id: z.string().optional(),
+        athlete_id: z.string().optional(),
+      }),
+    ),
+    async (c) => {
+      const { route_id, athlete_id } = c.req.valid("query");
+      let results;
+
+      console.log(route_id, athlete_id);
+      console.log(!!(route_id && athlete_id));
+      if (route_id && athlete_id) {
+        results = (
+          await c.env.DB.prepare(
+            "SELECT * FROM Runs WHERE route_id = ? AND athlete_id = ?",
+          )
+            .bind(route_id, athlete_id)
+            .all()
+        ).results;
+      } else {
+        results = (await c.env.DB.prepare("SELECT * FROM Runs").all()).results;
+      }
+      return c.json(z.array(RunSchema).parse(results), 200);
+    },
+  )
   .get(
     "/event/:eventId",
     zValidator("param", z.object({ eventId: z.string() })),

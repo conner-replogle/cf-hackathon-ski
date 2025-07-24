@@ -19,7 +19,23 @@ import Combobox from "@/components/ui/combo-box";
 // @ts-ignore
 import FilePondPluginMediaPreview from "filepond-plugin-media-preview";
 import "filepond-plugin-media-preview/dist/filepond-plugin-media-preview.min.css";
-import { client, useAthletes } from "@/services/api";
+import { client, queryClient, useAthletes, useRuns } from "@/services/api";
+import { Check, ChevronsUpDown, Plus } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 
 registerPlugin(FilePondPluginMediaPreview);
 
@@ -27,6 +43,9 @@ const FormSchema = z.object({
   video: z.instanceof(File, { message: "Please upload a video" }),
   athlete: z.number({
     required_error: "Please select an athlete.",
+  }),
+  run: z.number({
+    required_error: "Please select a run.",
   }),
 });
 
@@ -62,18 +81,47 @@ export default function SelectVideoPage() {
     [athletes.data],
   );
 
-  async function onSubmit(data: z.infer<typeof FormSchema>) {
-    const run = await client.api.runs.$post({
+  const selectedAthleteId = form.watch("athlete");
+  const { runs } = useRuns(
+    searchParams.get("route") || "",
+    selectedAthleteId?.toString() || "",
+  );
+
+  const runsData = useMemo(
+    () =>
+      runs.data
+        ? runs.data.map((run) => ({
+            label: "Run " + run.run_order,
+            value: run.id,
+          }))
+        : [],
+    [runs.data],
+  );
+
+  const handleCreateRunClicked = async () => {
+    const resp = await client.api.runs.$post({
       json: {
         route_id: parseInt(searchParams?.get("route") || ""),
-        athlete_id: data.athlete,
+        athlete_id: selectedAthleteId,
       },
     });
-    const runId = (await run.json()).id;
 
+    const runId = (await resp.json()).id;
+
+    form.setValue("run", runId);
+    setComboboxOpen(false);
+
+    // todo: only invalidate runs
+    await queryClient.invalidateQueries();
+  };
+
+  const [comboboxOpen, setComboboxOpen] = useState(false);
+
+  const selectedRunId = form.watch("run");
+  async function onSubmit(data: z.infer<typeof FormSchema>) {
     await client.api.runs[":runId"].turns[":turnId"].clips.$post({
       param: {
-        runId: runId.toString(),
+        runId: selectedRunId.toString(),
         turnId: searchParams?.get("turn") || "",
       },
       form: { video: data.video },
@@ -126,7 +174,80 @@ export default function SelectVideoPage() {
               </FormItem>
             )}
           />
-          <Button type="submit" size="lg" className="w-full">
+          <FormField
+            control={form.control}
+            name="run"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>Run</FormLabel>
+                <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        size="lg"
+                        className={cn(
+                          "w-full justify-between",
+                          !field.value && "text-muted-foreground",
+                        )}
+                      >
+                        {field.value
+                          ? runsData.find((item) => item.value === field.value)
+                              ?.label
+                          : "Select runs"}
+                        <ChevronsUpDown className="opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]">
+                    <Command>
+                      <CommandInput
+                        placeholder={`Search runs...`}
+                        className="h-12"
+                      />
+                      <CommandList>
+                        <CommandEmpty>No runs found.</CommandEmpty>
+                        <div className="px-1 py-2">
+                          <Button
+                            className="w-full"
+                            onClick={handleCreateRunClicked}
+                          >
+                            <Plus />
+                            Create new run instead
+                          </Button>
+                        </div>
+                        <hr className="mb-2" />
+                        <CommandGroup>
+                          {runsData.map((item) => (
+                            <CommandItem
+                              value={item.label}
+                              key={item.value}
+                              onSelect={(val) => {
+                                form.setValue("run", parseInt(val));
+                                setComboboxOpen(false);
+                              }}
+                            >
+                              {item.label}
+                              <Check
+                                className={cn(
+                                  "ml-auto",
+                                  item.value === field.value
+                                    ? "opacity-100"
+                                    : "opacity-0",
+                                )}
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </FormItem>
+            )}
+          />
+          <Button type="submit" size="lg" className="w-full mt-8">
             Upload
           </Button>
           <Button
