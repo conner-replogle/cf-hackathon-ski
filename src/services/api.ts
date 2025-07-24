@@ -1,7 +1,7 @@
 import { QueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { hc, type InferRequestType, type InferResponseType } from "hono/client";
 import type { AppType } from "worker";
-import type { Event, Athlete, Route, Turn, Run } from "worker/types";
+import type { Event, Athlete, Turn, Run } from "worker/types";
 
 export const client = hc<AppType>("/");
 const queryClient = new QueryClient();
@@ -181,7 +181,7 @@ function useRoute(routeId: string | undefined) {
   return { route };
 }
 
-function useTurns(routeId?: number) {
+function useTurns(routeId?: string) {
   const turns = useQuery({
     queryKey: ["turns", routeId],
     queryFn: async () => {
