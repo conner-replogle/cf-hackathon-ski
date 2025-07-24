@@ -125,22 +125,24 @@ function useAthlete(athleteId: string | undefined) {
     return { athlete }
 }
 
-function useRoutes() {
-    const routes = useQuery<Route[], Error>({
-        queryKey: ['routes'],
+function useRoutes(eventId?: string) {
+    const routes = useQuery({
+        queryKey: ['routes', eventId],
         queryFn: async () => {
-            const res = await client.api.routes.$get();
-            if (!res.ok) {
-                throw new Error('Failed to fetch routes');
-            }
-            return await res.json();
-        }
-    });
-    return { routes };
+            const res = await client.api.routes.$get({
+                query: {
+                    ...(eventId && { event_id: eventId }),
+                },
+            })
+            return await res.json()
+        },
+    })
+
+    return { routes }
 }
 
 function useRoute(routeId: string | undefined) {
-    const route = useQuery<(Route & { turns: Turn[] }) | null, Error>({
+    const route = useQuery({
         queryKey: ['routes', routeId],
         queryFn: async () => {
             if (!routeId) return null
@@ -156,12 +158,15 @@ function useRoute(routeId: string | undefined) {
     return { route }
 }
 
-function useTurns() {
-    const turns = useQuery<Turn[], Error>({
-        queryKey: ['turns'],
+function useTurns(routeId?: string) {
+    const turns = useQuery({
+        queryKey: ['turns', routeId],
         queryFn: async () => {
-            const res = await client.api.turns.$get()
-            if (!res.ok) throw new Error('Failed to fetch turns');
+            const res = await client.api.turns.$get({
+                query: {
+                    ...(routeId && { route_id: routeId }),
+                },
+            })
             return await res.json()
         },
     })
