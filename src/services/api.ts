@@ -1,16 +1,18 @@
-import { QueryClient, useMutation, useQuery } from "@tanstack/react-query";
+import { QueryClient, useMutation, useQuery, UseQueryResult } from "@tanstack/react-query";
 import { hc, type InferRequestType, type InferResponseType } from "hono/client";
 import type { AppType } from "worker";
+import type { Event, Athlete, Route, Turn, Run } from 'worker/types';
 
 const client = hc<AppType>('/')
 const queryClient = new QueryClient()
 
 
 function useEvents(){
-    const events = useQuery({
+    const events = useQuery<Event[], Error>({
         queryKey: ['events'],
         queryFn: async () => {
             const res = await client.api.events.$get()
+            if (!res.ok) throw new Error('Failed to fetch events');
             return await res.json()
         },
     })
@@ -26,6 +28,7 @@ function useEvents(){
         const res = await $post({
             json: event,
         })
+        if (!res.ok) throw new Error('Failed to create event');
         return await res.json()
         },
         onSuccess: async () => {
@@ -41,10 +44,11 @@ function useEvents(){
 }
 
 function useRuns() {
-    const runs = useQuery({
+    const runs = useQuery<Run[], Error>({
         queryKey: ['runs'],
         queryFn: async () => {
             const res = await client.api.runs.$get()
+            if (!res.ok) throw new Error('Failed to fetch runs');
             return await res.json()
         },
     })
@@ -60,6 +64,7 @@ function useRuns() {
             const res = await $post({
                 json: run,
             })
+            if (!res.ok) throw new Error('Failed to create run');
             return await res.json()
         },
         onSuccess: async () => {
@@ -74,13 +79,14 @@ function useRuns() {
 }
 
 function useEventRuns(eventId: string | undefined) {
-    const eventRuns = useQuery({
+    const eventRuns = useQuery<(Run & { athlete_name: string; route_name: string })[], Error>({
         queryKey: ['runs', 'event', eventId],
         queryFn: async () => {
             if (!eventId) return []
             const res = await client.api.runs.event[':eventId'].$get({
                 param: { eventId }
             })
+            if (!res.ok) throw new Error('Failed to fetch event runs');
             return await res.json()
         },
         enabled: !!eventId,
@@ -90,10 +96,11 @@ function useEventRuns(eventId: string | undefined) {
 }
 
 function useAthletes() {
-    const athletes = useQuery({
+    const athletes = useQuery<Athlete[], Error>({
         queryKey: ['athletes'],
         queryFn: async () => {
             const res = await client.api.athletes.$get()
+            if (!res.ok) throw new Error('Failed to fetch athletes');
             return await res.json()
         },
     })
@@ -102,13 +109,14 @@ function useAthletes() {
 }
 
 function useAthlete(athleteId: string | undefined) {
-    const athlete = useQuery({
+    const athlete = useQuery<Athlete | null, Error>({
         queryKey: ['athletes', athleteId],
         queryFn: async () => {
             if (!athleteId) return null
             const res = await client.api.athletes[':id'].$get({
                 param: { id: athleteId }
             })
+            if (!res.ok) return null;
             return await res.json()
         },
         enabled: !!athleteId,
@@ -118,25 +126,28 @@ function useAthlete(athleteId: string | undefined) {
 }
 
 function useRoutes() {
-    const routes = useQuery({
+    const routes = useQuery<Route[], Error>({
         queryKey: ['routes'],
         queryFn: async () => {
-            const res = await client.api.routes.$get()
-            return await res.json()
-        },
-    })
-
-    return { routes }
+            const res = await client.api.routes.$get();
+            if (!res.ok) {
+                throw new Error('Failed to fetch routes');
+            }
+            return await res.json();
+        }
+    });
+    return { routes };
 }
 
 function useRoute(routeId: string | undefined) {
-    const route = useQuery({
+    const route = useQuery<(Route & { turns: Turn[] }) | null, Error>({
         queryKey: ['routes', routeId],
         queryFn: async () => {
             if (!routeId) return null
             const res = await client.api.routes[':id'].$get({
                 param: { id: routeId }
             })
+            if (!res.ok) return null;
             return await res.json()
         },
         enabled: !!routeId,
@@ -146,10 +157,11 @@ function useRoute(routeId: string | undefined) {
 }
 
 function useTurns() {
-    const turns = useQuery({
+    const turns = useQuery<Turn[], Error>({
         queryKey: ['turns'],
         queryFn: async () => {
             const res = await client.api.turns.$get()
+            if (!res.ok) throw new Error('Failed to fetch turns');
             return await res.json()
         },
     })
@@ -158,13 +170,14 @@ function useTurns() {
 }
 
 function useTurn(turnId: string | undefined) {
-    const turn = useQuery({
+    const turn = useQuery<Turn | null, Error>({
         queryKey: ['turns', turnId],
         queryFn: async () => {
             if (!turnId) return null
             const res = await client.api.turns[':id'].$get({
                 param: { id: turnId }
             })
+            if (!res.ok) return null;
             return await res.json()
         },
         enabled: !!turnId,
@@ -174,13 +187,14 @@ function useTurn(turnId: string | undefined) {
 }
 
 function useRun(runId: string | undefined) {
-    const run = useQuery({
+    const run = useQuery<Run | null, Error>({
         queryKey: ['runs', runId],
         queryFn: async () => {
             if (!runId) return null
             const res = await client.api.runs[':id'].$get({
                 param: { id: runId }
             })
+            if (!res.ok) return null;
             return await res.json()
         },
         enabled: !!runId,
@@ -190,13 +204,14 @@ function useRun(runId: string | undefined) {
 }
 
 function useEvent(eventId: string | undefined) {
-    const event = useQuery({
+    const event = useQuery<Event | null, Error>({
         queryKey: ['events', eventId],
         queryFn: async () => {
             if (!eventId) return null
             const res = await client.api.events[':id'].$get({
                 param: { id: eventId }
             })
+            if (!res.ok) return null;
             return await res.json()
         },
         enabled: !!eventId,
@@ -213,6 +228,7 @@ function useCreateEventAthletes(eventId: string) {
                 param: { id: eventId },
                 json: { athletes },
             })
+            if (!res.ok) throw new Error('Failed to create event athletes');
             return await res.json()
         },
         onSuccess: async () => {
@@ -238,6 +254,7 @@ function useCreateEventRoute(eventId: string) {
                 param: { id: eventId },
                 json: routeData,
             })
+            if (!res.ok) throw new Error('Failed to create event route');
             return await res.json()
         },
         onSuccess: async () => {
@@ -252,8 +269,6 @@ function useCreateEventRoute(eventId: string) {
 
     return { createEventRoute }
 }
-
-
 
 export {
     queryClient, 
