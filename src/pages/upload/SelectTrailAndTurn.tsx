@@ -10,10 +10,10 @@ import { Button } from "@/components/ui/button";
 import { useRoutes, useTurns } from "@/services/api";
 
 const FormSchema = z.object({
-  route: z.string({
+  route: z.number({
     required_error: "Please select a route.",
   }),
-  turn: z.string({
+  turn: z.number({
     required_error: "Please select a turn.",
   }),
 });
@@ -33,8 +33,8 @@ export default function SelectTrailAndTurnPage() {
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
-      route: searchParams.get("route") || undefined,
-      turn: searchParams.get("turn") || undefined,
+      route: parseInt(searchParams.get("route") || "") || undefined,
+      turn: parseInt(searchParams.get("turn") || "") || undefined,
     },
   });
 
@@ -68,6 +68,8 @@ export default function SelectTrailAndTurnPage() {
       `/upload/video?event=${searchParams.get("event")}&route=${data.route}&turn=${data.turn}`,
     );
   }
+
+  console.log(form.formState.errors);
   return (
     <Layout description="Next, select a route and turn below">
       <Form {...form}>
@@ -81,7 +83,7 @@ export default function SelectTrailAndTurnPage() {
                 <Combobox
                   data={routesData}
                   value={field.value}
-                  onSelect={(val) => form.setValue("route", val as string)}
+                  onSelect={(val) => form.setValue("route", val as number)}
                   itemLabel="route"
                 />
               </FormItem>
@@ -97,7 +99,7 @@ export default function SelectTrailAndTurnPage() {
                 <Combobox
                   data={turnsData}
                   value={field.value}
-                  onSelect={(val) => form.setValue("turn", val as string)}
+                  onSelect={(val) => form.setValue("turn", val as number)}
                   itemLabel="turn"
                 />
               </FormItem>
