@@ -165,7 +165,7 @@ function useTurns(routeId?: number) {
     queryFn: async () => {
       const res = await client.api.turns.$get({
         query: {
-          ...(routeId && { route_id: String(routeId) }),
+          ...(routeId && { route_id: routeId }),
         },
       });
       return await res.json();
@@ -225,7 +225,21 @@ function useEvent(eventId: string | undefined) {
 
   return { event };
 }
+function useRunClips(runId: string | undefined) {
+    const clips = useQuery({
+        queryKey: ['clips', runId],
+        queryFn: async () => {
+            const res = await client.api.runs[':runId'].clips.$get({
+                param: { runId: runId! }
+            })
+            return await res.json()
+        },
+        enabled: !!runId,
+    })
+    console.log(clips.data)  
 
+    return { clips }
+}
 // Hook for creating event athletes (bulk creation)
 function useCreateEventAthletes(eventId: string) {
   const createEventAthletes = useMutation({
@@ -273,6 +287,8 @@ function useCreateEventRoute(eventId: string) {
     },
   });
 
+
+  return { createEventRoute };
   return { createEventRoute };
 }
 
