@@ -90,7 +90,7 @@ export default function SelectVideoPage() {
                 <Combobox
                   data={athletes}
                   value={field.value}
-                  onSelect={(val) => form.setValue("athlete", val)}
+                  onSelect={(val) => form.setValue("athlete", String(val))}
                   itemLabel="athlete"
                 />
               </FormItem>

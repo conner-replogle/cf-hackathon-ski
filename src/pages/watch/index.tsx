@@ -11,7 +11,7 @@ export function Watch(){
 
     useEffect(() => {
         if (!eventId) {
-          navigate("/upload/event");
+          navigate("/watch/event");
         }
     }, [eventId, navigate]);
 
