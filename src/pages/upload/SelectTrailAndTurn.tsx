@@ -7,7 +7,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo } from "react";
 import Combobox from "@/components/ui/combo-box";
 import { Button } from "@/components/ui/button";
-import { useRoutes } from "@/services/api";
+import { useRoutes, useTurns } from "@/services/api";
 
 const FormSchema = z.object({
   route: z.string({
@@ -50,18 +50,18 @@ export default function SelectTrailAndTurnPage() {
     [routes.data],
   );
 
-  //
-  // const { turns } = useTurns();
-  // const turnsData = useMemo(
-  //   () =>
-  //     turns.data
-  //       ? turns.data.map((turn) => ({
-  //           label: turn.route_name,
-  //           value: turn.id,
-  //         }))
-  //       : [],
-  //   [turns.data],
-  // );
+  const selectedRouteId = form.watch("route");
+  const { turns } = useTurns(selectedRouteId);
+  const turnsData = useMemo(
+    () =>
+      turns.data
+        ? turns.data.map((turn) => ({
+            label: turn.turn_name,
+            value: turn.id,
+          }))
+        : [],
+    [turns.data],
+  );
 
   function onSubmit(data: z.infer<typeof FormSchema>) {
     navigate(
@@ -95,7 +95,7 @@ export default function SelectTrailAndTurnPage() {
               <FormItem className="flex flex-col">
                 <FormLabel>Turn</FormLabel>
                 <Combobox
-                  data={[]}
+                  data={turnsData}
                   value={field.value}
                   onSelect={(val) => form.setValue("turn", val as string)}
                   itemLabel="turn"
