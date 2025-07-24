@@ -106,7 +106,29 @@ function useAthletes() {
     },
   });
 
-  return { athletes };
+  const $post = client.api.athletes.$post;
+
+  const createAthlete = useMutation<
+    InferResponseType<typeof $post>,
+    Error,
+    InferRequestType<typeof $post>["json"]
+  >({
+    mutationFn: async (athlete) => {
+      const res = await $post({
+        json: athlete,
+      });
+      if (!res.ok) throw new Error("Failed to create athlete");
+      return await res.json();
+    },
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ["athletes"] });
+    },
+    onError: (error) => {
+      console.log(error);
+    },
+  });
+
+  return { athletes, createAthlete };
 }
 
 function useAthlete(athleteId: string | undefined) {
@@ -288,8 +310,9 @@ function useCreateEventRoute(eventId: string) {
   });
 
   return { createEventRoute };
-  return { createEventRoute };
 }
+
+
 
 export {
   queryClient,

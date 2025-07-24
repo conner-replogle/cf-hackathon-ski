@@ -196,6 +196,21 @@ const athletesApp = new Hono<{ Bindings: Bindings }>()
     }
     return c.json(AthleteSchema.parse(athlete), 200);
   })
+  .post('/', zValidator('json', AthleteSchema.omit({ id: true })), async (c) => {
+    const { event_id, athlete_name } = c.req.valid('json');
+
+    // Verify event exists
+    const event = await c.env.DB.prepare('SELECT id FROM Events WHERE id = ?').bind(event_id).first();
+    if (!event) {
+      return c.json({ error: 'Event not found' }, 400);
+    }
+
+    const stmt = c.env.DB.prepare(
+      'INSERT INTO Athletes (event_id, athlete_name) VALUES (?, ?) RETURNING *'
+    );
+    const newAthlete = await stmt.bind(event_id, athlete_name).first();
+    return c.json(AthleteSchema.parse(newAthlete), 201);
+  })
   .put(
     "/:id",
     zValidator("param", z.object({ id: z.string() })),
