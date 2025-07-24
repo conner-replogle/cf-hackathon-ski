@@ -422,17 +422,17 @@ const runsApp = new Hono<{ Bindings: Bindings }>()
     return c.json(RunSchema.parse(run), 200);
   })
   .post("/", zValidator("json", CreateRunRequestSchema), async (c) => {
-    const { route_id, athlete_id, run_order } = c.req.valid("json");
-    const route = await c.env.DB.prepare("SELECT id FROM Routes WHERE id = ?")
-      .bind(route_id)
-      .first();
-    if (!route) return c.json({ error: "Route not found" }, 404);
-    const athlete = await c.env.DB.prepare(
-      "SELECT id FROM Athletes WHERE id = ?",
+    const { route_id, athlete_id } = c.req.valid("json");
+
+    // Get the logical next run_order based on runs in the database with the same route_id and athlete_id
+    const lastRun = await c.env.DB.prepare(
+      "SELECT MAX(run_order) as max_run_order FROM Runs WHERE route_id = ? AND athlete_id = ?",
     )
-      .bind(athlete_id)
+      .bind(route_id, athlete_id)
       .first();
-    if (!athlete) return c.json({ error: "Athlete not found" }, 404);
+
+    const run_order = ((lastRun?.max_run_order as number) || 0) + 1;
+
     const stmt = c.env.DB.prepare(
       "INSERT INTO Runs (route_id, athlete_id, run_order) VALUES (?, ?, ?) RETURNING *",
     );
@@ -571,67 +571,80 @@ const app = new Hono<{ Bindings: Bindings }>()
   .route("/api/routes", routesApp)
   .route("/api/turns", turnsApp)
   .route("/api/runs", runsApp)
-  .get('/api/videos/:runId/:turnId', async (c) => {
-  const runId = c.req.param('runId');
-  const turnId = c.req.param('turnId');
+  .get("/api/videos/:runId/:turnId", async (c) => {
+    const runId = c.req.param("runId");
+    const turnId = c.req.param("turnId");
 
-  try {
-    const range = c.req.header('range');
-    const videoObject = await c.env.VIDEOS.get(`${runId}/${turnId}`);
+    try {
+      const range = c.req.header("range");
+      const videoObject = await c.env.VIDEOS.get(`${runId}/${turnId}`);
 
-    if (videoObject === null) {
-      return c.json({ success: false, message: 'Video not found' }, 404);
-    }
-
-    c.header('Accept-Ranges', 'bytes');
-    c.header('Content-Type', videoObject.httpMetadata?.contentType || 'application/octet-stream');
-    c.header('ETag', videoObject.httpEtag);
-
-    if (range) {
-      const match = /^bytes=(\d+)-(\d*)$/.exec(range);
-      if (match) {
-        const start = parseInt(match[1], 10);
-        const end = match[2] ? parseInt(match[2], 10) : videoObject.size - 1;
-
-        if (start >= videoObject.size || end >= videoObject.size) {
-          return new Response('Range Not Satisfiable', {
-            status: 416,
-            headers: { 'Content-Range': `bytes */${videoObject.size}` },
-          });
-        }
-
-        const contentLength = end - start + 1;
-        const rangedObject = await c.env.VIDEOS.get(`${runId}/${turnId}`, { range: { offset: start, length: contentLength } });
-
-        if (rangedObject === null) {
-          return new Response('Range Not Satisfiable', {
-            status: 416,
-            headers: { 'Content-Range': `bytes */${videoObject.size}` },
-          });
-        }
-
-        return new Response(rangedObject.body, {
-          status: 206,
-          headers: {
-            'Content-Range': `bytes ${start}-${end}/${videoObject.size}`,
-            'Content-Length': contentLength.toString(),
-            'Content-Type': videoObject.httpMetadata?.contentType || 'application/octet-stream',
-            'Accept-Ranges': 'bytes',
-            'ETag': videoObject.httpEtag,
-          },
-        });
+      if (videoObject === null) {
+        return c.json({ success: false, message: "Video not found" }, 404);
       }
+
+      c.header("Accept-Ranges", "bytes");
+      c.header(
+        "Content-Type",
+        videoObject.httpMetadata?.contentType || "application/octet-stream",
+      );
+      c.header("ETag", videoObject.httpEtag);
+
+      if (range) {
+        const match = /^bytes=(\d+)-(\d*)$/.exec(range);
+        if (match) {
+          const start = parseInt(match[1], 10);
+          const end = match[2] ? parseInt(match[2], 10) : videoObject.size - 1;
+
+          if (start >= videoObject.size || end >= videoObject.size) {
+            return new Response("Range Not Satisfiable", {
+              status: 416,
+              headers: { "Content-Range": `bytes */${videoObject.size}` },
+            });
+          }
+
+          const contentLength = end - start + 1;
+          const rangedObject = await c.env.VIDEOS.get(`${runId}/${turnId}`, {
+            range: { offset: start, length: contentLength },
+          });
+
+          if (rangedObject === null) {
+            return new Response("Range Not Satisfiable", {
+              status: 416,
+              headers: { "Content-Range": `bytes */${videoObject.size}` },
+            });
+          }
+
+          return new Response(rangedObject.body, {
+            status: 206,
+            headers: {
+              "Content-Range": `bytes ${start}-${end}/${videoObject.size}`,
+              "Content-Length": contentLength.toString(),
+              "Content-Type":
+                videoObject.httpMetadata?.contentType ||
+                "application/octet-stream",
+              "Accept-Ranges": "bytes",
+              ETag: videoObject.httpEtag,
+            },
+          });
+        }
+      }
+
+      // No range header, or invalid range, serve the full video
+      c.header("Content-Length", String(videoObject.size));
+      return c.body(videoObject.body, 200);
+    } catch (e: any) {
+      console.error("Error fetching video:", e);
+      return c.json(
+        {
+          success: false,
+          message: "An error occurred while fetching the video",
+          error: e.message,
+        },
+        500,
+      );
     }
-
-    // No range header, or invalid range, serve the full video
-    c.header('Content-Length', String(videoObject.size));
-    return c.body(videoObject.body, 200);
-
-  } catch (e: any) {
-    console.error('Error fetching video:', e);
-    return c.json({ success: false, message: 'An error occurred while fetching the video', error: e.message }, 500);
-  }
-});
+  });
 
 export type AppType = typeof app;
 export default app;
