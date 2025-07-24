@@ -184,7 +184,7 @@ const eventsApp = new Hono<{ Bindings: Bindings }>()
 const athletesApp = new Hono<{ Bindings: Bindings }>()
   .get("/", async (c) => {
     const { results } = await c.env.DB.prepare("SELECT * FROM Athletes").all();
-    return c.json(results, 200);
+    return c.json(results as unknown as Athlete[], 200);
   })
   .get("/:id", zValidator("param", z.object({ id: z.string() })), async (c) => {
     const { id: athleteId } = c.req.valid("param");
@@ -196,7 +196,7 @@ const athletesApp = new Hono<{ Bindings: Bindings }>()
     if (!athlete) {
       return c.json({ error: "Athlete not found" }, 404);
     }
-    return c.json(athlete, 200);
+    return c.json(athlete as unknown as Athlete, 200);
   })
   .put(
     "/:id",

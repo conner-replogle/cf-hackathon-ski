@@ -14,7 +14,8 @@ CREATE TABLE Athletes (
 CREATE TABLE Routes (
     id INTEGER PRIMARY KEY,
     event_id INTEGER NOT NULL,
-    route_name TEXT NOT NULL UNIQUE,
+    route_name TEXT NOT NULL,
+    UNIQUE(route_name, event_id),
     FOREIGN KEY (event_id) REFERENCES Events(id) ON DELETE CASCADE
 );
 
