@@ -13,7 +13,7 @@ import {
 } from '@tanstack/react-query'
 import { queryClient } from "./services/api";
 import { Watch } from "./pages/watch";
-import Admin from "./pages/admin/Admin";
+import {Admin} from "./pages/admin/Admin";
 
 
 
