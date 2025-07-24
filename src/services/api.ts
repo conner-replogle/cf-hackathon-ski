@@ -165,7 +165,7 @@ function useTurns(routeId?: number) {
     queryFn: async () => {
       const res = await client.api.turns.$get({
         query: {
-          ...(routeId && { route_id: routeId }),
+          ...(routeId && { route_id: String(routeId) }),
         },
       });
       return await res.json();
@@ -291,5 +291,6 @@ export {
   useTurn,
   useCreateEventAthletes,
   useCreateEventRoute,
+  useRunClips
 };
 
