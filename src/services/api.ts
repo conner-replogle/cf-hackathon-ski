@@ -10,7 +10,7 @@ function useEvents() {
   const events = useQuery<Event[], Error>({
     queryKey: ["events"],
     queryFn: async () => {
-      const res = await client.api.events.$get();
+      const res = await client.events.$get();
       if (!res.ok) throw new Error("Failed to fetch events");
       return await res.json();
     },

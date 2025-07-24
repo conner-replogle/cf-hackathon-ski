@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "generate":"",
     "db-migrate": "wrangler d1 migrations apply ski-db --local",
     "seed": "tsx seed/seed.ts"
   },
