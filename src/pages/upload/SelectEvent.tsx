@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { FileUp } from "lucide-react";
 import Layout from "./layout";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -33,8 +32,7 @@ export default function SelectEventPage() {
   const navigate = useNavigate();
 
   const { events } = useEvents();
-
-  const data = useMemo(
+  const eventsData = useMemo(
     () =>
       events.data
         ? events.data.map((event) => ({
@@ -59,7 +57,7 @@ export default function SelectEventPage() {
               <FormItem className="flex flex-col">
                 <FormLabel>Event</FormLabel>
                 <Combobox
-                  data={data}
+                  data={eventsData}
                   value={field.value}
                   onSelect={(val) => form.setValue("event", val as number)}
                   itemLabel="event"

@@ -4,14 +4,14 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import Combobox from "@/components/ui/combo-box";
-import { trails, turns } from "./mock";
 import { Button } from "@/components/ui/button";
+import { useRoutes } from "@/services/api";
 
 const FormSchema = z.object({
-  trail: z.string({
-    required_error: "Please select a trail.",
+  route: z.string({
+    required_error: "Please select a route.",
   }),
   turn: z.string({
     required_error: "Please select a turn.",
@@ -33,30 +33,56 @@ export default function SelectTrailAndTurnPage() {
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
-      trail: searchParams.get("trail") || undefined,
+      route: searchParams.get("route") || undefined,
       turn: searchParams.get("turn") || undefined,
     },
   });
+
+  const { routes } = useRoutes(searchParams.get("event") || undefined);
+  const routesData = useMemo(
+    () =>
+      routes.data
+        ? routes.data.map((route) => ({
+            label: route.route_name,
+            value: route.id,
+          }))
+        : [],
+    [routes.data],
+  );
+
+  //
+  // const { turns } = useTurns();
+  // const turnsData = useMemo(
+  //   () =>
+  //     turns.data
+  //       ? turns.data.map((turn) => ({
+  //           label: turn.route_name,
+  //           value: turn.id,
+  //         }))
+  //       : [],
+  //   [turns.data],
+  // );
+
   function onSubmit(data: z.infer<typeof FormSchema>) {
     navigate(
-      `/upload/video?event=${searchParams.get("event")}&trail=${data.trail}&turn=${data.turn}`,
+      `/upload/video?event=${searchParams.get("event")}&route=${data.route}&turn=${data.turn}`,
     );
   }
   return (
-    <Layout description="Next, select a trail and turn below">
+    <Layout description="Next, select a route and turn below">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
             control={form.control}
-            name="trail"
+            name="route"
             render={({ field }) => (
               <FormItem className="flex flex-col">
-                <FormLabel>Trail</FormLabel>
+                <FormLabel>Route</FormLabel>
                 <Combobox
-                  data={trails}
+                  data={routesData}
                   value={field.value}
-                  onSelect={(val) => form.setValue("trail", val)}
-                  itemLabel="trail"
+                  onSelect={(val) => form.setValue("route", val as string)}
+                  itemLabel="route"
                 />
               </FormItem>
             )}
@@ -69,9 +95,9 @@ export default function SelectTrailAndTurnPage() {
               <FormItem className="flex flex-col">
                 <FormLabel>Turn</FormLabel>
                 <Combobox
-                  data={turns}
+                  data={[]}
                   value={field.value}
-                  onSelect={(val) => form.setValue("turn", val)}
+                  onSelect={(val) => form.setValue("turn", val as string)}
                   itemLabel="turn"
                 />
               </FormItem>
