@@ -1,10 +1,12 @@
 import { hc } from "hono/client";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from 'url';
 import type { AppType } from "../worker";
 import type { 
   CreateEventRequest, 
   CreateAthleteRequest, 
   CreateRouteRequest, 
-  CreateTurnRequest, 
   CreateRunRequest,
   Event,
   Athlete,
@@ -14,6 +16,10 @@ import type {
 
 // Hono RPC Client setup
 const client = hc<AppType>('http://localhost:5173');
+
+// ESM-compatible __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Seed data based on existing mock structure but enhanced for skiing events
 const seedEvents = [
@@ -181,6 +187,9 @@ async function seedDatabase() {
       const eventRoutes = createdRoutes.filter(route => route.event_id === event.id);
 
       for (const athlete of eventAthletes) {
+        if (Math.random() < 0.3) {
+          continue;
+        }
         for (const route of eventRoutes) {
             const runData: CreateRunRequest = {
               route_id: route.id,
@@ -203,20 +212,35 @@ async function seedDatabase() {
 
                 for (const turn of turns) {
                   
-                  const clipData = {
-                    run_id: runResult.id,
-                    turn_id: turn.id,
-                    r2_video_link: `https://mock.videos/clip_${runResult.id}_${turn.id}.mp4`,
-                  };
-                  // Use the new seeding endpoint for clips
-                  const clipResponse = await client.api.seed.clips.$post({ json: clipData });
+                  const videoFiles = fs.readdirSync(path.join(__dirname, "videos")).filter(f => f.endsWith('.MP4'));
+                  if (videoFiles.length === 0) {
+                    logError("No video files found in seed/videos directory. Skipping clip creation.", null);
+                    continue;
+                  }
+
+                  const videoPath = path.join(__dirname, "videos", videoFiles[createdClipsCount % videoFiles.length]);
+                  const videoBuffer = fs.readFileSync(videoPath);
+                  const videoBlob = new Blob([videoBuffer], { type: 'video/mp4' });
+
+                  const formData = new FormData();
+                  formData.append('video', videoBlob, path.basename(videoPath));
+
+                  const clipResponse = await client.api.runs[':runId'].turns[':turnId'].clips.$post({
+                    param: { 
+                      runId: runResult.id.toString(), 
+                      turnId: turn.id.toString() 
+                    },
+                    form: { video: videoBlob as any },
+                  });
+
                   if (clipResponse.ok) {
                     createdClipsCount++;
-                    log(`  Successfully created clip for turn: ${turn.turn_name}`);
+                    log(`  Successfully uploaded clip for turn: ${turn.turn_name}`);
                   } else {
-                    logError(`  Failed to create clip for turn: ${turn.turn_name}`, await clipResponse.text());
+                    const errorText = await clipResponse.text();
+                    logError(`  Failed to upload clip for turn: ${turn.turn_name}`, { status: clipResponse.status, error: errorText });
                   }
-                  await delay(50);
+                  await delay(500); // Increased delay for file upload
                   
                 }
               } else {

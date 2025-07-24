@@ -3,23 +3,18 @@ import { useState, useEffect, useCallback } from 'react';
 import { VideoPlayerComponent } from './VideoPlayerComponent';
 import { Playlist } from './Playlist';
 import { Timeline } from './Timeline';
+import type { Clip } from 'worker/types';
 
-interface Turn {
-  turn_id: number;
-  turn_name: string;
-  event_id: number;
-  athlete_id: number;
-  r2_video_link: string;
-}
+
 
 interface VideoSegment {
-  turn: Turn;
+  clip: Clip;
   startTime: number;
   endTime: number;
   duration: number;
 }
 
-export const VideoPlayerContainer = ({ turns }: { turns: Turn[] }) => {
+export const VideoPlayerContainer = ({ clips }: { clips: Clip[] }) => {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [totalDuration, setTotalDuration] = useState(0);
@@ -31,7 +26,7 @@ export const VideoPlayerContainer = ({ turns }: { turns: Turn[] }) => {
       const segments: VideoSegment[] = [];
       let currentStartTime = 0;
 
-      for (const turn of turns) {
+      for (const clip of clips) {
         const duration = await new Promise<number>((resolve) => {
           const tempVideo = document.createElement('video');
           tempVideo.preload = 'metadata';
@@ -41,11 +36,11 @@ export const VideoPlayerContainer = ({ turns }: { turns: Turn[] }) => {
           tempVideo.onerror = () => {
             resolve(10); // Default duration on error
           };
-          tempVideo.src = "/api/videos/" + turn.r2_video_link;
+          tempVideo.src = "/api/videos/" + clip.clip_r2;
         });
 
         segments.push({
-          turn,
+          clip,
           startTime: currentStartTime,
           endTime: currentStartTime + duration,
           duration,
@@ -57,10 +52,10 @@ export const VideoPlayerContainer = ({ turns }: { turns: Turn[] }) => {
       setTotalDuration(currentStartTime);
     };
 
-    if (turns.length > 0) {
+    if (clips.length > 0) {
       loadVideoDurations();
     }
-  }, [turns]);
+  }, [clips]);
 
   const handleTimelineSeek = useCallback((targetTime: number) => {
     let segmentIndex = videoSegments.findIndex(
@@ -85,7 +80,7 @@ export const VideoPlayerContainer = ({ turns }: { turns: Turn[] }) => {
   }, [videoSegments, currentVideoIndex, totalDuration]);
 
   const handleVideoEnd = () => {
-    if (currentVideoIndex < turns.length - 1) {
+    if (currentVideoIndex < clips.length - 1) {
       setCurrentVideoIndex(currentVideoIndex + 1);
     } else {
       setCurrentVideoIndex(0);
@@ -104,7 +99,7 @@ export const VideoPlayerContainer = ({ turns }: { turns: Turn[] }) => {
     // This is where we could update the duration if it was initially estimated
   };
 
-  if (turns.length === 0) {
+  if (clips.length === 0) {
     return (
       <div className="flex items-center justify-center p-8 bg-muted rounded-lg">
         <p className="text-muted-foreground">No videos available for this run.</p>
@@ -112,13 +107,16 @@ export const VideoPlayerContainer = ({ turns }: { turns: Turn[] }) => {
     );
   }
 
-  const currentVideo = turns[currentVideoIndex];
-
+  const currentVideo = clips[currentVideoIndex];
+  if (!currentVideo) {
+    console.log("No video found for index", currentVideoIndex)
+    return null;
+  }
   return (
     <div className="grid md:grid-cols-3 gap-8">
       <div className="md:col-span-2 space-y-4">
         <VideoPlayerComponent
-          src={"/api/videos/" + currentVideo.r2_video_link}
+          src={"/api/videos/" + currentVideo.clip_r2}
           onEnded={handleVideoEnd}
           onLoadedMetadata={handleLoadedMetadata}
           currentTime={videoSegments[currentVideoIndex] ? currentTime - videoSegments[currentVideoIndex].startTime : 0}
@@ -138,7 +136,7 @@ export const VideoPlayerContainer = ({ turns }: { turns: Turn[] }) => {
         />
       </div>
       <Playlist
-        turns={turns}
+        clips={clips}
         currentVideoIndex={currentVideoIndex}
         onVideoSelect={handleVideoSelect}
       />
