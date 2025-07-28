@@ -8,8 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "generate":"",
+    "generate":"npx drizzle-kit generate",
     "db-migrate": "wrangler d1 migrations apply ski-db --local",
+    "migrate":"npm run generate && npm run db-migrate",
     "seed": "tsx seed/seed.ts"
   },
   "dependencies": {

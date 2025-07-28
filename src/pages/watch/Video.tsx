@@ -7,8 +7,8 @@ import { useRun, useRunClips } from "@/services/api";
 export default function Video() {
   const { runId } = useParams<{ runId: string }>();
 
-  const {run: {data: run,isLoading: loading,isError: error}} = useRun(runId || undefined)
-  const {clips: {data: clips,isLoading: clipsLoading,isError: clipsError}} = useRunClips(runId || undefined)
+  const {data: run,isLoading: loading,isError: error} = useRun(runId ? parseInt(runId) : undefined)
+  const {data: clips,isLoading: clipsLoading,isError: clipsError} = useRunClips(runId ? parseInt(runId) : undefined)
 
 
   if (!runId) {
@@ -41,7 +41,7 @@ export default function Video() {
         {run && (
           <header className="bg-card p-6 shadow-md mb-8">
             <div className="text-center">
-              <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl">{run.route_id} Run {run.run_order}</h1>
+              <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl">{run.routeId} Run {run.runOrder}</h1>
 
             </div>
           </header>

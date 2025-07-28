@@ -36,7 +36,7 @@ export const VideoPlayerContainer = ({ clips }: { clips: Clip[] }) => {
           tempVideo.onerror = () => {
             resolve(10); // Default duration on error
           };
-          tempVideo.src = "/api/videos/" + clip.clip_r2;
+          tempVideo.src = "/api/videos/" + clip.clipR2;
         });
 
         segments.push({
@@ -116,7 +116,7 @@ export const VideoPlayerContainer = ({ clips }: { clips: Clip[] }) => {
     <div className="grid md:grid-cols-3 gap-8">
       <div className="md:col-span-2 space-y-4">
         <VideoPlayerComponent
-          src={"/api/videos/" + currentVideo.clip_r2}
+          src={"/api/videos/" + currentVideo.clipR2}
           onEnded={handleVideoEnd}
           onLoadedMetadata={handleLoadedMetadata}
           currentTime={videoSegments[currentVideoIndex] ? currentTime - videoSegments[currentVideoIndex].startTime : 0}
