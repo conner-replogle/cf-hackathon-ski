@@ -166,11 +166,12 @@ const routesApp = new Hono<{ Bindings: CfBindings }>()
     const db = drizzle(d1, { schema });
     const { event_id } = c.req.valid("query");
 
-    const query = db.select().from(schema.routes);
-    if (event_id) {
-      query.where(eq(schema.routes.eventId, event_id));
-    }
-    const allRoutes = await query.all();
+    const allRoutes = await db.query.routes.findMany({
+      where: event_id ? eq(schema.routes.eventId, event_id) : undefined,
+      with:{
+        turns: true,
+      }
+    });
     return c.json(allRoutes);
   })
   // Get a single route with its turns
@@ -196,22 +197,13 @@ const routesApp = new Hono<{ Bindings: CfBindings }>()
     const d1 = c.env.DB;
     const db = drizzle(d1, { schema });
     const { name, eventId, turns } = c.req.valid("json");
-
-    const newRouteWithTurns = await db.transaction(async (tx) => {
-      const [newRoute] = await tx.insert(schema.routes).values({ routeName: name, eventId }).returning();
-      if (!newRoute) {
-        tx.rollback();
-        return null;
-      }
-      const turnsToInsert = turns.map((turn) => ({ ...turn, routeId: newRoute.id }));
-      const newTurns = await tx.insert(schema.turns).values(turnsToInsert).returning();
-      return { ...newRoute, turns: newTurns };
-    });
-
-    if (!newRouteWithTurns) {
+    const newRoute = await db.insert(schema.routes).values({ routeName: name, eventId }).returning();
+    if (!newRoute) {
       return c.json({ error: "Failed to create route" }, 500);
     }
-    return c.json(newRouteWithTurns, 201);
+    const turnsToInsert = turns.map((turn) => ({ ...turn, routeId: newRoute[0].id }));
+    const newTurns = await db.insert(schema.turns).values(turnsToInsert).returning();
+    return c.json({ ...newRoute, turns: newTurns }, 201);
   });
 // #endregion Routes
 
@@ -258,15 +250,7 @@ const runsApp = new Hono<{ Bindings: CfBindings }>()
     const db = drizzle(DB, { schema });
     const { routeId, athleteId, runOrder } = c.req.valid("json");
 
-    const newRun = await db.transaction(async (tx) => {
-      const [newRun] = await tx.insert(schema.runs).values({ routeId, athleteId, runOrder }).returning();
-      if (!newRun) {
-        tx.rollback();
-        return null;
-      }
-
-      return newRun;
-    });
+    const [newRun] = await db.insert(schema.runs).values({ routeId, athleteId, runOrder }).returning();
 
     if (!newRun) {
       return c.json({ error: "Failed to create run" }, 500);

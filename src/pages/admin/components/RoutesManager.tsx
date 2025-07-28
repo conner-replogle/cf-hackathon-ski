@@ -5,12 +5,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useRoutes, useEvents, useCreateRoute, useTurns } from '@/services/api';
+import { useRoutes, useEvents, useCreateRoute } from '@/services/api';
 import { PlusCircle, X } from 'lucide-react';
 import type { Route, Turn } from 'worker/types';
 
 export function RoutesManager() {
-  const { data: turns } = useTurns();
+
   const { data: events } = useEvents();
   const { data: routes } = useRoutes();
 
@@ -25,7 +25,7 @@ export function RoutesManager() {
       </div>
       <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {routes?.map((route: Route) => {
-          const routeTurns = turns?.filter((t: Turn) => t.routeId === route.id) || [];
+          const routeTurns: Turn[] = []; // No turns data available after removing useTurns
           return (
             <Card key={route.id}>
               <CardHeader>

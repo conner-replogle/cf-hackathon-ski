@@ -1,7 +1,7 @@
 import { QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { hc } from "hono/client";
 import type { AppType } from "../../worker/index";
-import type { Run } from "worker/types";
+import type { Athlete, CreateRouteWithTurns, Event, Route, Run } from "worker/types";
 
 const client = hc<AppType>("/");
 export const queryClient = new QueryClient();
@@ -20,7 +20,7 @@ export function useEvents() {
 export function useCreateEvent() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (event: { eventName: string; eventLocation: string; eventDate: string; }) => {
+        mutationFn: async (event: Omit<Event,"id">) => {
             const res = await client.api.events.$post({ json: event });
             if (!res.ok) throw new Error(await res.text());
             return await res.json();
@@ -45,14 +45,18 @@ export function useEvent(id: number) {
 // #endregion
 
 // #region Runs
-export function useRuns(eventId?: number, athleteId?: number) {
+export function useRuns(eventId?: number) {
   const { data: events } = useEvents();
 
   return useQuery({
     queryKey: ["runs"],
     queryFn: async () => {
       if (!events) return [];
-
+      if (eventId) {
+        const res = await client.api.events[':eventId'].runs.$get({ param: { eventId: eventId.toString() } });
+        if (!res.ok) throw new Error(await res.text());
+        return await res.json();
+      }
       const allRunsPromises = events.map(event =>
         client.api.events[':eventId'].runs.$get({ param: { eventId: event.id.toString() } })
       );
@@ -68,7 +72,7 @@ export function useRuns(eventId?: number, athleteId?: number) {
 
       return runs.flat();
     },
-    enabled: !!events,
+    
   });
 }
 
@@ -132,6 +136,7 @@ export function useUploadVideoClip() {
       const formData = new FormData();
       formData.append("video", video);
       formData.append("turnId", turnId.toString());
+      formData.append("runId", runId.toString());
 
       const res = await client.api.runs[':runId'].clips.upload.$post({
         param: { runId: runId.toString() },
@@ -163,8 +168,8 @@ export function useAthletes() {
 export function useCreateAthlete() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (athlete: { athleteName: string;  }) => {
-            const res = await client.api.athletes.$post({ json: athlete });
+        mutationFn: async (athlete: Omit<Athlete, "id">) => {
+            const res = await client.api.athletes.$post   ({ json: athlete });
             if (!res.ok) throw new Error(await res.text());
             return await res.json();
         },
@@ -217,7 +222,7 @@ export function useRoute(id?: number) {
 export const useCreateRoute = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (route: { name: string; eventId: number; turns: { turnOrder: number; turnName: string; latitude: number; longitude: number; }[] }) => {
+        mutationFn: async (route: CreateRouteWithTurns) => {
             const res = await client.api.routes.$post({ json: route });
             if (!res.ok) throw new Error(await res.text());
             return await res.json();

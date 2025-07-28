@@ -11,7 +11,7 @@ interface SelectEventProps {
 
 export function SelectEvent({ redirectUrl }: SelectEventProps) {
   const [searchParams] = useSearchParams();
-  const { events } = useEvents();
+  const { data:events } = useEvents();
   const [selectedEventId, setSelectedEventId] = useState<number>();
   const navigate = useNavigate();
 
@@ -30,13 +30,13 @@ export function SelectEvent({ redirectUrl }: SelectEventProps) {
 
   const eventsData = useMemo(
     () =>
-      events.data
-        ? events.data.map((event) => ({
-            label: event.event_name,
+      events
+        ? events.map((event) => ({
+            label: event.eventName,
             value: event.id,
           }))
         : [],
-    [events.data],
+    [events],
   );
 
   return (

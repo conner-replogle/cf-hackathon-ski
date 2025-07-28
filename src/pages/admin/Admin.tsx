@@ -65,7 +65,6 @@ export function Admin() {
 
         <div className="space-y-6">
           {activeTab === 'events' && <EventsManager />}
-          {activeTab === 'routes' && <RoutesManager />}
           {activeTab === 'athletes' && <AthletesManager />}
         </div>
       </div>

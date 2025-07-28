@@ -53,6 +53,7 @@ const FormSchema = z.object({
 export default function SelectVideoPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { mutateAsync: uploadVideoClip } = useUploadVideoClip();
 
   const [showSuccessMsg, setShowSuccessMsg] = useState(false);
   const { mutateAsync: createRun } = useCreateRun();
@@ -115,7 +116,6 @@ export default function SelectVideoPage() {
 
   const selectedRunId = form.watch("run");
   async function onSubmit(data: z.infer<typeof FormSchema>) {
-       const { mutateAsync: uploadVideoClip } = useUploadVideoClip();
 
     await uploadVideoClip({
       runId: selectedRunId,

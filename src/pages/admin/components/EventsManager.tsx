@@ -6,10 +6,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCreateEvent, useEvents } from '@/services/api';
 import type { Event } from 'worker/types';
-import { PlusCircle } from 'lucide-react';
+import { Edit, PlusCircle } from 'lucide-react';
+import { EditEventRoutesDialog } from './EditEventRoutesDialog';
 
 export function EventsManager() {
   const { data:events } = useEvents();
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+
+  const handleEditClick = (event: Event) => {
+    setSelectedEvent(event);
+    setIsEditModalOpen(true);
+  };
 
   return (
     <section>
@@ -26,11 +34,22 @@ export function EventsManager() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-gray-500">ID: {event.id}</p>
+              <Button variant="outline" size="sm" className="mt-2" onClick={() => handleEditClick(event)}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Routes & Turns
+              </Button>
             </CardContent>
           </Card>
         ))}
       </div>
       {events?.length === 0 && <p className="text-gray-500">No events found. Create one to get started.</p>}
+      {selectedEvent && (
+        <EditEventRoutesDialog
+          event={selectedEvent}
+          open={isEditModalOpen}
+          onOpenChange={setIsEditModalOpen}
+        />
+      )}
     </section>
   );
 }
