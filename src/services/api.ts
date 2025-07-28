@@ -60,7 +60,7 @@ export function useEvent(id: number) {
 // #region Runs
 export function useRuns(route_id: number, athlete_id: number) {
   return useQuery({
-    queryKey: ["runs"],
+    queryKey: ["runs", route_id, athlete_id],
     queryFn: async () => {
       const res = await client.api.runs.$get({
         query: {
