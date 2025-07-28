@@ -16,7 +16,8 @@
     {
       "binding": "DB",
       "database_name": "ski-db",
-      "database_id": "fd6f9916-ff0c-4505-be09-0f8f119e7031"
+      "database_id": "fd6f9916-ff0c-4505-be09-0f8f119e7031",
+      "migrations_dir": "drizzle/"
     }
   ]
 }

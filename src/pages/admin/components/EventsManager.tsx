@@ -4,12 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useEvents } from '@/services/api';
+import { useCreateEvent, useEvents } from '@/services/api';
 import type { Event } from 'worker/types';
 import { PlusCircle } from 'lucide-react';
 
 export function EventsManager() {
-  const { events } = useEvents();
+  const { data:events } = useEvents();
 
   return (
     <section>
@@ -18,11 +18,11 @@ export function EventsManager() {
         <CreateEventDialog />
       </div>
       <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-        {events.data?.map((event: Event) => (
+        {events?.map((event: Event) => (
           <Card key={event.id}>
             <CardHeader>
-              <CardTitle className="truncate">{event.event_name}</CardTitle>
-              <CardDescription>{event.event_location}</CardDescription>
+              <CardTitle className="truncate">{event.eventName}</CardTitle>
+              <CardDescription>{event.eventLocation}</CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-gray-500">ID: {event.id}</p>
@@ -30,7 +30,7 @@ export function EventsManager() {
           </Card>
         ))}
       </div>
-      {events.data?.length === 0 && <p className="text-gray-500">No events found. Create one to get started.</p>}
+      {events?.length === 0 && <p className="text-gray-500">No events found. Create one to get started.</p>}
     </section>
   );
 }
@@ -39,12 +39,12 @@ function CreateEventDialog() {
   const [open, setOpen] = useState(false);
   const [eventName, setEventName] = useState('');
   const [eventLocation, setEventLocation] = useState('');
-  const { createEvent } = useEvents();
+  const { mutateAsync: createEvent,isPending } = useCreateEvent();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!eventName.trim()) return;
-    await createEvent.mutateAsync({ event_name: eventName, event_location: eventLocation });
+    await createEvent({ eventName, eventLocation, eventDate: new Date().toISOString() });
     setEventName('');
     setEventLocation('');
     setOpen(false);
@@ -93,8 +93,8 @@ function CreateEventDialog() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={createEvent.isPending}>
-              {createEvent.isPending ? 'Saving...' : 'Save Event'}
+            <Button type="submit" disabled={isPending}>
+              {isPending ? 'Saving...' : 'Save Event'}
             </Button>
           </DialogFooter>
         </form>

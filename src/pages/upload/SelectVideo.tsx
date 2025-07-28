@@ -19,7 +19,8 @@ import Combobox from "@/components/ui/combo-box";
 // @ts-ignore
 import FilePondPluginMediaPreview from "filepond-plugin-media-preview";
 import "filepond-plugin-media-preview/dist/filepond-plugin-media-preview.min.css";
-import { client, queryClient, useAthletes, useRuns } from "@/services/api";
+import { useUploadVideoClip } from "@/services/api";
+import {  useAthletes, useCreateRun, useRuns } from "@/services/api";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import {
   Command,
@@ -35,7 +36,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
+
 
 registerPlugin(FilePondPluginMediaPreview);
 
@@ -54,7 +55,7 @@ export default function SelectVideoPage() {
   const navigate = useNavigate();
 
   const [showSuccessMsg, setShowSuccessMsg] = useState(false);
-
+  const { mutateAsync: createRun } = useCreateRun();
   useEffect(() => {
     const params = ["event", "route", "turn"];
     for (const param of params) {
@@ -69,62 +70,57 @@ export default function SelectVideoPage() {
     resolver: zodResolver(FormSchema),
   });
 
-  const { athletes } = useAthletes();
+  const { data:athletes } = useAthletes();
   const athletesData = useMemo(
     () =>
-      athletes.data
-        ? athletes.data.map((athlete) => ({
-            label: athlete.athlete_name,
+      athletes
+        ? athletes.map((athlete) => ({
+            label: athlete.athleteName,
             value: athlete.id,
           }))
         : [],
-    [athletes.data],
+    [athletes],
   );
 
   const selectedAthleteId = form.watch("athlete");
-  const { runs } = useRuns(
-    searchParams.get("route") || "",
-    selectedAthleteId?.toString() || "",
+  const { data:runs } = useRuns(
+    
+    
   );
 
   const runsData = useMemo(
     () =>
-      runs.data
-        ? runs.data.map((run) => ({
-            label: "Run " + run.run_order,
-            value: run.id,
+      runs
+        ? runs.map((run) => ({
+            label: "Run " + run.run.runOrder,
+            value: run.run.id,
           }))
         : [],
-    [runs.data],
+    [runs],
   );
 
   const handleCreateRunClicked = async () => {
-    const resp = await client.api.runs.$post({
-      json: {
-        route_id: parseInt(searchParams?.get("route") || ""),
-        athlete_id: selectedAthleteId,
-      },
+    const runId = await createRun({
+      routeId: parseInt(searchParams?.get("route") || ""),
+      athleteId: selectedAthleteId,
+      runOrder: 1,
     });
 
-    const runId = (await resp.json()).id;
-
-    form.setValue("run", runId);
+    form.setValue("run", runId.id);
     setComboboxOpen(false);
 
-    // todo: only invalidate runs
-    await queryClient.invalidateQueries();
   };
 
   const [comboboxOpen, setComboboxOpen] = useState(false);
 
   const selectedRunId = form.watch("run");
   async function onSubmit(data: z.infer<typeof FormSchema>) {
-    await client.api.runs[":runId"].turns[":turnId"].clips.$post({
-      param: {
-        runId: selectedRunId.toString(),
-        turnId: searchParams?.get("turn") || "",
-      },
-      form: { video: data.video },
+       const { mutateAsync: uploadVideoClip } = useUploadVideoClip();
+
+    await uploadVideoClip({
+      runId: selectedRunId,
+      turnId: parseInt(searchParams?.get("turn") || ""),
+      video: data.video,
     });
     setShowSuccessMsg(true);
     form.reset();

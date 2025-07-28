@@ -5,16 +5,17 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useRoutes, useEvents, useCreateEventRoute, useTurns } from '@/services/api';
-import type { Route } from 'worker/types';
+import { useRoutes, useEvents, useCreateRoute, useTurns } from '@/services/api';
 import { PlusCircle, X } from 'lucide-react';
+import type { Route, Turn } from 'worker/types';
 
 export function RoutesManager() {
-  const { routes } = useRoutes();
-  const { turns } = useTurns();
-  const { events } = useEvents();
+  const { data: turns } = useTurns();
+  const { data: events } = useEvents();
+  const { data: routes } = useRoutes();
 
-  const eventMap = new Map(events.data?.map(e => [e.id, e.event_name]));
+
+  const eventMap = new Map(events?.map(e => [e.id, e.eventName]));
 
   return (
     <section>
@@ -23,18 +24,18 @@ export function RoutesManager() {
         <CreateRouteDialog />
       </div>
       <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-        {routes.data?.map((route: Route) => {
-          const routeTurns = turns.data?.filter(t => t.route_id === route.id) || [];
+        {routes?.map((route: Route) => {
+          const routeTurns = turns?.filter((t: Turn) => t.routeId === route.id) || [];
           return (
             <Card key={route.id}>
               <CardHeader>
-                <CardTitle className="truncate">{route.route_name}</CardTitle>
-                <CardDescription>Event: {eventMap.get(route.event_id) || 'N/A'}</CardDescription>
+                <CardTitle className="truncate">{route.routeName}</CardTitle>
+                <CardDescription>Event: {eventMap.get(route.eventId) || 'N/A'}</CardDescription>
               </CardHeader>
               <CardContent>
                  <p className="text-sm font-medium text-gray-700">Turns: {routeTurns.length}</p>
                  <ul className="text-xs text-gray-500 list-disc pl-4 mt-1">
-                   {routeTurns.slice(0, 3).map(t => <li key={t.id} className="truncate">{t.turn_name}</li>)}
+                   {routeTurns.slice(0, 3).map((t: Turn) => <li key={t.id} className="truncate">{t.turnName}</li>)}
                    {routeTurns.length > 3 && <li>...and {routeTurns.length - 3} more</li>}
                  </ul>
               </CardContent>
@@ -42,7 +43,7 @@ export function RoutesManager() {
           );
         })}
       </div>
-      {routes.data?.length === 0 && <p className="text-gray-500">No routes found. Create one to get started.</p>}
+      {routes?.length === 0 && <p className="text-gray-500">No routes found. Create one to get started.</p>}
     </section>
   );
 }
@@ -52,8 +53,8 @@ function CreateRouteDialog() {
   const [routeName, setRouteName] = useState('');
   const [eventId, setEventId] = useState<string | undefined>(undefined);
   const [turns, setTurns] = useState([{ turn_name: '', latitude: 0, longitude: 0 }]);
-  const { events } = useEvents();
-  const { createEventRoute } = useCreateEventRoute(eventId || '');
+  const { data: events } = useEvents();
+  const { mutateAsync: createRoute, isPending } = useCreateRoute();
 
   const handleTurnChange = (index: number, field: 'turn_name' | 'latitude' | 'longitude', value: string) => {
     const newTurns = [...turns];
@@ -80,7 +81,18 @@ function CreateRouteDialog() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!routeName.trim() || !eventId || turns.some(t => !t.turn_name.trim())) return;
-    await createEventRoute.mutateAsync({ route_name: routeName, turns });
+    const formattedTurns = turns.map((turn, index) => ({
+      turnOrder: index + 1,
+      turnName: turn.turn_name,
+      latitude: turn.latitude,
+      longitude: turn.longitude,
+    }));
+
+    await createRoute({
+      name: routeName,
+      eventId: parseInt(eventId),
+      turns: formattedTurns,
+    });
     setRouteName('');
     setEventId(undefined);
     setTurns([{ turn_name: '', latitude: 0, longitude: 0 }]);
@@ -90,7 +102,7 @@ function CreateRouteDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button disabled={!events.data || events.data.length === 0}>
+        <Button disabled={!events || events.length === 0}>
           <PlusCircle className="h-4 w-4 mr-2" />
           Add Route
         </Button>
@@ -125,9 +137,9 @@ function CreateRouteDialog() {
                   <SelectValue placeholder="Select an event" />
                 </SelectTrigger>
                 <SelectContent>
-                  {events.data?.map(event => (
+                  {events?.map(event => (
                     <SelectItem key={event.id} value={event.id.toString()}>
-                      {event.event_name}
+                      {event.eventName}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -171,8 +183,8 @@ function CreateRouteDialog() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={createEventRoute.isPending || !eventId}>
-              {createEventRoute.isPending ? 'Saving...' : 'Save Route'}
+            <Button type="submit" disabled={isPending || !eventId}>
+              {isPending ? 'Saving...' : 'Save Route'}
             </Button>
           </DialogFooter>
         </form>

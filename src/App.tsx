@@ -10,10 +10,12 @@ import SelectVideoPage from "./pages/upload/SelectVideo";
 import { SelectEventPage as WatchSelectEventPage } from "./pages/watch/SelectEventPage";
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "./services/api";
 import { Watch } from "./pages/watch";
 import { Admin } from "./pages/admin/Admin";
 import { Toaster } from "./components/ui/sonner";
+import { queryClient } from "./services/api";
+
+
 
 function App() {
   return (

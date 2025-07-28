@@ -5,15 +5,15 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAthletes, useEvents } from '@/services/api';
+import { useAthletes, useCreateAthlete, useEvents } from '@/services/api';
 import type { Athlete } from 'worker/types';
 import { PlusCircle } from 'lucide-react';
 
 export function AthletesManager() {
-  const { athletes } = useAthletes();
-  const { events } = useEvents();
+  const { data:athletes } = useAthletes();
+  const { data:events } = useEvents();
 
-  const eventMap = new Map(events.data?.map(e => [e.id.toString(), e.event_name]));
+  const eventMap = new Map(events?.map(e => [e.id.toString(), e.eventName]));
 
   return (
     <section>
@@ -22,11 +22,10 @@ export function AthletesManager() {
         <CreateAthleteDialog />
       </div>
       <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-        {athletes.data?.map((athlete: Athlete) => (
+        {athletes?.map((athlete: Athlete) => (
           <Card key={athlete.id}>
             <CardHeader>
-              <CardTitle className="truncate">{athlete.athlete_name}</CardTitle>
-              <CardDescription>Event: {eventMap.get(athlete.event_id.toString()) || 'N/A'}</CardDescription>
+              <CardTitle className="truncate">{athlete.athleteName}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-gray-500">ID: {athlete.id}</p>
@@ -34,7 +33,7 @@ export function AthletesManager() {
           </Card>
         ))}
       </div>
-      {athletes.data?.length === 0 && <p className="text-gray-500">No athletes found. Create one to get started.</p>}
+      {athletes && athletes.length === 0 && <p className="text-gray-500">No athletes found. Create one to get started.</p>}
     </section>
   );
 }
@@ -42,23 +41,20 @@ export function AthletesManager() {
 function CreateAthleteDialog() {
   const [open, setOpen] = useState(false);
   const [athleteName, setAthleteName] = useState('');
-  const [eventId, setEventId] = useState<string | undefined>(undefined);
-  const { createAthlete } = useAthletes();
-  const { events } = useEvents();
+  const { mutateAsync: createAthlete ,isPending} = useCreateAthlete();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!athleteName.trim() || !eventId) return;
-    await createAthlete.mutateAsync({ athlete_name: athleteName, event_id: parseInt(eventId, 10) });
+    if (!athleteName.trim()) return;
+    await createAthlete({ athleteName });
     setAthleteName('');
-    setEventId(undefined);
     setOpen(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button disabled={!events.data || events.data.length === 0}>
+        <Button>
           <PlusCircle className="h-4 w-4 mr-2" />
           Add Athlete
         </Button>
@@ -84,27 +80,10 @@ function CreateAthleteDialog() {
                 placeholder="e.g., Mikaela Shiffrin"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="event" className="text-right">
-                Event
-              </Label>
-              <Select value={eventId} onValueChange={setEventId}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select an event" />
-                </SelectTrigger>
-                <SelectContent>
-                  {events.data?.map(event => (
-                    <SelectItem key={event.id} value={event.id.toString()}>
-                      {event.event_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={createAthlete.isPending || !eventId}>
-              {createAthlete.isPending ? 'Saving...' : 'Save Athlete'}
+            <Button type="submit" disabled={isPending}>
+              {isPending ? 'Saving...' : 'Save Athlete'}
             </Button>
           </DialogFooter>
         </form>

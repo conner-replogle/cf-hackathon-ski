@@ -38,29 +38,29 @@ export default function SelectTrailAndTurnPage() {
     },
   });
 
-  const { routes } = useRoutes(searchParams.get("event") || undefined);
+  const { data: routes } = useRoutes(parseInt(searchParams.get("event") || "") || undefined);
   const routesData = useMemo(
     () =>
-      routes.data
-        ? routes.data.map((route) => ({
-            label: route.route_name,
+      routes
+        ? routes.map((route) => ({
+            label: route.routeName,
             value: route.id,
           }))
         : [],
-    [routes.data],
+    [routes],
   );
 
   const selectedRouteId = form.watch("route");
-  const { turns } = useTurns(selectedRouteId ? String(selectedRouteId) : undefined);
+  const { data: turns } = useTurns(selectedRouteId ? selectedRouteId : undefined);
   const turnsData = useMemo(
     () =>
-      turns.data
-        ? turns.data.map((turn) => ({
-            label: turn.turn_name,
+      turns
+        ? turns.map((turn) => ({
+            label: turn.turnName,
             value: turn.id,
           }))
         : [],
-    [turns.data],
+    [turns],
   );
 
   function onSubmit(data: z.infer<typeof FormSchema>) {
@@ -84,7 +84,7 @@ export default function SelectTrailAndTurnPage() {
                   data={routesData}
                   value={field.value}
                   onSelect={(val) => form.setValue("route", val as number)}
-                  itemLabel="route"
+                  itemLabel="routeName" 
                 />
               </FormItem>
             )}
@@ -100,7 +100,7 @@ export default function SelectTrailAndTurnPage() {
                   data={turnsData}
                   value={field.value}
                   onSelect={(val) => form.setValue("turn", val as number)}
-                  itemLabel="turn"
+                  itemLabel="turnName"
                 />
               </FormItem>
             )}

@@ -7,6 +7,7 @@ import {
 } from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
 
 // Events Table
 export const events = sqliteTable("Events", {
@@ -30,6 +31,8 @@ export const routes = sqliteTable("Routes", {
     .references(() => events.id, { onDelete: "cascade" }),
   routeName: text("route_name").notNull(),
 });
+
+
 
 // Turns Table
 export const turns = sqliteTable("Turns", {
@@ -157,3 +160,20 @@ export const insertAthletesSchema = createInsertSchema(athletes);
 export const insertEventsToAthletesSchema =
   createInsertSchema(eventsToAthletes);
 export const insertRunsSchema = createInsertSchema(runs);
+export const insertClipsSchema = createInsertSchema(clips);
+
+export const createRouteWithTurnsSchema = z.object({
+  name: z.string().min(1, { message: "Route name cannot be empty." }),
+  eventId: z.number(),
+  turns: z
+    .array(
+      z.object({
+        turnOrder: z.number().int().positive(),
+        turnName: z.string().min(1),
+        latitude: z.number(),
+        longitude: z.number(),
+      })
+    )
+    .min(1, { message: "A route must have at least one turn." }),
+});
+

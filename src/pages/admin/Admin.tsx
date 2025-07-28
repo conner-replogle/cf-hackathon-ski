@@ -11,18 +11,15 @@ import { useEvents, useAthletes, useRoutes } from '@/services/api';
 export function Admin() {
   const [activeTab, setActiveTab] = useState<'events' | 'routes' | 'athletes'>('events');
   
-  const { events: { data: eventsData, isLoading: eventsLoading } } = useEvents();
-  const { athletes: { data: athletesData, isLoading: athletesLoading } } = useAthletes();
-  const { routes: { data: routesData, isLoading: routesLoading } } = useRoutes();
-  const isLoading = eventsLoading || athletesLoading || routesLoading;
+  const { data: events,isPending: eventsLoading } = useEvents();
+  const { data: athletes,isPending: athletesLoading } = useAthletes();
 
   const tabConfig = [
-    { id: 'events' as const, label: 'Events', icon: Trophy, count: eventsData?.length ?? 0 },
-    { id: 'routes' as const, label: 'Routes', icon: MapPin, count: routesData?.length ?? 0 },
-    { id: 'athletes' as const, label: 'Athletes', icon: Users, count: athletesData?.length ?? 0 }
+    { id: 'events' as const, label: 'Events', icon: Trophy, count: events?.length ?? 0 },
+    { id: 'athletes' as const, label: 'Athletes', icon: Users, count: athletes?.length ?? 0 }
   ];
 
-  if (isLoading) {
+  if (eventsLoading || athletesLoading ) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex items-center gap-2 text-gray-600">
