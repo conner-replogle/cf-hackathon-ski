@@ -38,7 +38,9 @@ export default function SelectTrailAndTurnPage() {
     },
   });
 
-  const { data: routes } = useRoutes(parseInt(searchParams.get("event") || "") || undefined);
+  const { data: routes } = useRoutes(
+    parseInt(searchParams.get("event") || "") || undefined,
+  );
   const routesData = useMemo(
     () =>
       routes
@@ -51,7 +53,9 @@ export default function SelectTrailAndTurnPage() {
   );
 
   const selectedRouteId = form.watch("route");
-  const { data: turns } = useTurns(selectedRouteId ? selectedRouteId : undefined);
+  const { data: turns } = useTurns(
+    selectedRouteId ? selectedRouteId : undefined,
+  );
   const turnsData = useMemo(
     () =>
       turns
@@ -84,7 +88,7 @@ export default function SelectTrailAndTurnPage() {
                   data={routesData}
                   value={field.value}
                   onSelect={(val) => form.setValue("route", val as number)}
-                  itemLabel="routeName" 
+                  itemLabel="route"
                 />
               </FormItem>
             )}
@@ -100,7 +104,7 @@ export default function SelectTrailAndTurnPage() {
                   data={turnsData}
                   value={field.value}
                   onSelect={(val) => form.setValue("turn", val as number)}
-                  itemLabel="turnName"
+                  itemLabel="turn"
                 />
               </FormItem>
             )}

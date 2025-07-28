@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "generate":"npx drizzle-kit generate",
     "db-migrate": "wrangler d1 migrations apply ski-db --local",
-    "migrate":"npm run generate && npm run db-migrate",
+    "migrate":"pnpm run generate && pnpm run db-migrate",
     "seed": "tsx seed/seed.ts"
   },
   "dependencies": {

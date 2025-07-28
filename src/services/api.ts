@@ -1,7 +1,18 @@
-import { QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { hc } from "hono/client";
 import type { AppType } from "../../worker/index";
-import type { Athlete, CreateRouteWithTurns, Event, Route, Run } from "worker/types";
+import type {
+  Athlete,
+  CreateRouteWithTurns,
+  Event,
+  Route,
+  Run,
+} from "worker/types";
 
 const client = hc<AppType>("/");
 export const queryClient = new QueryClient();
@@ -18,24 +29,26 @@ export function useEvents() {
 }
 
 export function useCreateEvent() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: async (event: Omit<Event,"id">) => {
-            const res = await client.api.events.$post({ json: event });
-            if (!res.ok) throw new Error(await res.text());
-            return await res.json();
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["events"] });
-        },
-    });
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (event: Omit<Event, "id">) => {
+      const res = await client.api.events.$post({ json: event });
+      if (!res.ok) throw new Error(await res.text());
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+    },
+  });
 }
 
 export function useEvent(id: number) {
   return useQuery({
     queryKey: ["events", id],
     queryFn: async () => {
-      const res = await client.api.events[':id'].$get({ param: { id: id.toString() } });
+      const res = await client.api.events[":id"].$get({
+        param: { id: id.toString() },
+      });
       if (!res.ok) throw new Error(await res.text());
       return await res.json();
     },
@@ -45,49 +58,33 @@ export function useEvent(id: number) {
 // #endregion
 
 // #region Runs
-export function useRuns(eventId?: number) {
-  const { data: events } = useEvents();
-
+export function useRuns(route_id: number, athlete_id: number) {
   return useQuery({
     queryKey: ["runs"],
     queryFn: async () => {
-      if (!events) return [];
-      if (eventId) {
-        const res = await client.api.events[':eventId'].runs.$get({ param: { eventId: eventId.toString() } });
-        if (!res.ok) throw new Error(await res.text());
-        return await res.json();
-      }
-      const allRunsPromises = events.map(event =>
-        client.api.events[':eventId'].runs.$get({ param: { eventId: event.id.toString() } })
-      );
-
-      const allRunsResponses = await Promise.all(allRunsPromises);
-
-      const runs = await Promise.all(
-        allRunsResponses.map(async res => {
-          if (!res.ok) throw new Error(await res.text());
-          return res.json();
-        })
-      );
-
-      return runs.flat();
+      const res = await client.api.runs.$get({
+        query: {
+          route_id: route_id.toString(),
+          athlete_id: athlete_id.toString(),
+        },
+      });
+      return await res.json();
     },
-    
   });
 }
 
 export function useCreateRun() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: async (run: Omit<Run, "id">) => {
-            const res = await client.api.runs.$post({ json: run });
-            if (!res.ok) throw new Error(await res.text());
-            return await res.json();
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["runs"] });
-        },
-    });
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (run: Omit<Run, "id">) => {
+      const res = await client.api.runs.$post({ json: run });
+      if (!res.ok) throw new Error(await res.text());
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["runs"] });
+    },
+  });
 }
 
 export function useRun(id?: number) {
@@ -95,7 +92,9 @@ export function useRun(id?: number) {
     queryKey: ["runs", id],
     queryFn: async () => {
       if (!id) return null;
-      const res = await client.api.runs[':id'].$get({ param: { id: id.toString() } });
+      const res = await client.api.runs[":id"].$get({
+        param: { id: id.toString() },
+      });
       if (!res.ok) throw new Error(await res.text());
       return await res.json();
     },
@@ -108,7 +107,9 @@ export function useEventRuns(eventId?: number) {
     queryKey: ["runs", "event", eventId],
     queryFn: async () => {
       if (!eventId) return [];
-      const res = await client.api.events[':eventId'].runs.$get({ param: { eventId: eventId.toString() } });
+      const res = await client.api.events[":eventId"].runs.$get({
+        param: { eventId: eventId.toString() },
+      });
       if (!res.ok) throw new Error(await res.text());
       return await res.json();
     },
@@ -121,7 +122,9 @@ export function useRunClips(runId?: number) {
     queryKey: ["clips", runId],
     queryFn: async () => {
       if (!runId) return [];
-      const res = await client.api.runs[':runId'].clips.$get({ param: { runId: runId.toString() } });
+      const res = await client.api.runs[":runId"].clips.$get({
+        param: { runId: runId.toString() },
+      });
       if (!res.ok) throw new Error(await res.text());
       return await res.json();
     },
@@ -132,15 +135,28 @@ export function useRunClips(runId?: number) {
 export function useUploadVideoClip() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ runId, turnId, video }: { runId: number; turnId: number; video: File }) => {
+    mutationFn: async ({
+      runId,
+      turnId,
+      video,
+    }: {
+      runId: number;
+      turnId: number;
+      video: File;
+    }) => {
       const formData = new FormData();
       formData.append("video", video);
       formData.append("turnId", turnId.toString());
       formData.append("runId", runId.toString());
 
-      const res = await client.api.runs[':runId'].clips.upload.$post({
-        param: { runId: runId.toString() },
-        form: formData as any,
+      // const res = await client.api.runs[":runId"].clips.upload.$post({
+      //   param: { runId: runId.toString() },
+      //   form: formData as any,
+      // });
+      //
+      const res = await fetch(`/api/runs/${runId}/clips/upload`, {
+        method: "POST",
+        body: formData,
       });
 
       if (!res.ok) throw new Error(await res.text());
@@ -166,17 +182,17 @@ export function useAthletes() {
 }
 
 export function useCreateAthlete() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: async (athlete: Omit<Athlete, "id">) => {
-            const res = await client.api.athletes.$post   ({ json: athlete });
-            if (!res.ok) throw new Error(await res.text());
-            return await res.json();
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["athletes"] });
-        },
-    });
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (athlete: Omit<Athlete, "id">) => {
+      const res = await client.api.athletes.$post({ json: athlete });
+      if (!res.ok) throw new Error(await res.text());
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["athletes"] });
+    },
+  });
 }
 
 export function useAthlete(id?: number) {
@@ -184,7 +200,9 @@ export function useAthlete(id?: number) {
     queryKey: ["athletes", id],
     queryFn: async () => {
       if (!id) return null;
-      const res = await client.api.athletes[':id'].$get({ param: { id: id.toString() } });
+      const res = await client.api.athletes[":id"].$get({
+        param: { id: id.toString() },
+      });
       if (!res.ok) throw new Error(await res.text());
       return await res.json();
     },
@@ -198,11 +216,12 @@ export function useRoutes(eventId?: number) {
   return useQuery({
     queryKey: ["routes", eventId],
     queryFn: async () => {
-      const res = await client.api.routes.$get({ query: { event_id: eventId?.toString() } });
+      const res = await client.api.routes.$get({
+        query: { event_id: eventId?.toString() },
+      });
       if (!res.ok) throw new Error(await res.text());
       return await res.json();
     },
-  
   });
 }
 
@@ -211,7 +230,9 @@ export function useRoute(id?: number) {
     queryKey: ["routes", id],
     queryFn: async () => {
       if (!id) return null;
-      const res = await client.api.routes[':routeId'].$get({ param: { routeId: id.toString() } });
+      const res = await client.api.routes[":routeId"].$get({
+        param: { routeId: id.toString() },
+      });
       if (!res.ok) throw new Error(await res.text());
       return await res.json();
     },
@@ -220,17 +241,17 @@ export function useRoute(id?: number) {
 }
 
 export const useCreateRoute = () => {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: async (route: CreateRouteWithTurns) => {
-            const res = await client.api.routes.$post({ json: route });
-            if (!res.ok) throw new Error(await res.text());
-            return await res.json();
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["routes"] });
-        },
-    });
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (route: CreateRouteWithTurns) => {
+      const res = await client.api.routes.$post({ json: route });
+      if (!res.ok) throw new Error(await res.text());
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["routes"] });
+    },
+  });
 };
 // #endregion
 
@@ -239,12 +260,14 @@ export function useTurns(routeId?: number) {
   return useQuery({
     queryKey: ["turns", routeId],
     queryFn: async () => {
-        if (!routeId) return [];
-        const res = await client.api.turns.$get({ query: { route_id: routeId.toString() } });
-        if (!res.ok) throw new Error(await res.text());
-        return await res.json();
+      if (!routeId) return [];
+      const res = await client.api.turns.$get({
+        query: { route_id: routeId.toString() },
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return await res.json();
     },
-    enabled: !!routeId
+    enabled: !!routeId,
   });
 }
 
@@ -253,11 +276,12 @@ export function useTurn(id?: number) {
     queryKey: ["turns", id],
     queryFn: async () => {
       if (!id) return null;
-      const res = await client.api.turns[':id'].$get({ param: { id: id.toString() } });
+      const res = await client.api.turns[":id"].$get({
+        param: { id: id.toString() },
+      });
       if (!res.ok) throw new Error(await res.text());
       return await res.json();
     },
     enabled: !!id,
   });
 }
-

@@ -20,7 +20,7 @@ import Combobox from "@/components/ui/combo-box";
 import FilePondPluginMediaPreview from "filepond-plugin-media-preview";
 import "filepond-plugin-media-preview/dist/filepond-plugin-media-preview.min.css";
 import { useUploadVideoClip } from "@/services/api";
-import {  useAthletes, useCreateRun, useRuns } from "@/services/api";
+import { useAthletes, useCreateRun, useRuns } from "@/services/api";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import {
   Command,
@@ -36,7 +36,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-
 
 registerPlugin(FilePondPluginMediaPreview);
 
@@ -71,7 +70,7 @@ export default function SelectVideoPage() {
     resolver: zodResolver(FormSchema),
   });
 
-  const { data:athletes } = useAthletes();
+  const { data: athletes } = useAthletes();
   const athletesData = useMemo(
     () =>
       athletes
@@ -84,17 +83,17 @@ export default function SelectVideoPage() {
   );
 
   const selectedAthleteId = form.watch("athlete");
-  const { data:runs } = useRuns(
-    
-    
+  const { data: runs } = useRuns(
+    parseInt(searchParams.get("route") || ""),
+    selectedAthleteId,
   );
 
   const runsData = useMemo(
     () =>
       runs
         ? runs.map((run) => ({
-            label: "Run " + run.run.runOrder,
-            value: run.run.id,
+            label: "Run " + run.runOrder,
+            value: run.id,
           }))
         : [],
     [runs],
@@ -104,19 +103,22 @@ export default function SelectVideoPage() {
     const runId = await createRun({
       routeId: parseInt(searchParams?.get("route") || ""),
       athleteId: selectedAthleteId,
-      runOrder: 1,
+      runOrder: -1,
     });
 
     form.setValue("run", runId.id);
     setComboboxOpen(false);
-
   };
 
   const [comboboxOpen, setComboboxOpen] = useState(false);
 
   const selectedRunId = form.watch("run");
   async function onSubmit(data: z.infer<typeof FormSchema>) {
-
+    console.log({
+      runId: selectedRunId,
+      turnId: parseInt(searchParams?.get("turn") || ""),
+      video: data.video,
+    });
     await uploadVideoClip({
       runId: selectedRunId,
       turnId: parseInt(searchParams?.get("turn") || ""),
@@ -203,7 +205,6 @@ export default function SelectVideoPage() {
                         className="h-12"
                       />
                       <CommandList>
-                        <CommandEmpty>No runs found.</CommandEmpty>
                         <div className="px-1 py-2">
                           <Button
                             className="w-full"
@@ -214,12 +215,14 @@ export default function SelectVideoPage() {
                           </Button>
                         </div>
                         <hr className="mb-2" />
+                        <CommandEmpty>No runs found.</CommandEmpty>
                         <CommandGroup>
                           {runsData.map((item) => (
                             <CommandItem
-                              value={item.label}
-                              key={item.value}
+                              value={item.value.toString()}
+                              key={item.label}
                               onSelect={(val) => {
+                                console.log(val);
                                 form.setValue("run", parseInt(val));
                                 setComboboxOpen(false);
                               }}
