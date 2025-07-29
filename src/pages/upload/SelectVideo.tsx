@@ -259,7 +259,7 @@ export default function SelectVideoPage() {
             )}
           />
           {
-            selectedRun && routeTurns && (
+            selectedRun && routeTurns && routeTurns.map  && (
               <div className="flex flex-row justify-center gap-2">
                 {
                   routeTurns?.map((turn) => {
