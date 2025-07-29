@@ -29,7 +29,7 @@ export function EditEventRoutesDialog({ event, open, onOpenChange }: EditEventRo
   }, [open]);
 
   const handleAddTurnToNewRoute = () => {
-    setNewRouteTurns([...newRouteTurns, { turnName: '', latitude: 0, longitude: 0, turnOrder: newRouteTurns.length + 1 }]);
+    setNewRouteTurns([...newRouteTurns, { turnName: '', turnOrder: newRouteTurns.length + 1 }]);
   };
 
   const handleRemoveTurnFromNewRoute = (index: number) => {
@@ -118,20 +118,6 @@ export function EditEventRoutesDialog({ event, open, onOpenChange }: EditEventRo
                       onChange={(e) => handleNewRouteTurnChange(index, 'turnName', e.target.value)}
                       placeholder={`Turn ${index + 1} Name`}
                       className="flex-grow"
-                    />
-                    <Input
-                      type="number"
-                      value={turn.latitude}
-                      onChange={(e) => handleNewRouteTurnChange(index, 'latitude', parseFloat(e.target.value))}
-                      placeholder="Lat"
-                      className="w-24"
-                    />
-                    <Input
-                      type="number"
-                      value={turn.longitude}
-                      onChange={(e) => handleNewRouteTurnChange(index, 'longitude', parseFloat(e.target.value))}
-                      placeholder="Lon"
-                      className="w-24"
                     />
                     <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveTurnFromNewRoute(index)}>
                       <X className="h-4 w-4" />

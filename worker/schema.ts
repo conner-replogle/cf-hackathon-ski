@@ -2,7 +2,6 @@ import {
   sqliteTable,
   text,
   integer,
-  real,
   primaryKey,
 } from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
@@ -41,8 +40,6 @@ export const turns = sqliteTable("Turns", {
     .references(() => routes.id, { onDelete: "cascade" }),
   turnOrder: integer("turn_order").notNull(),
   turnName: text("turn_name").notNull(),
-  latitude: real("latitude").notNull(),
-  longitude: real("longitude").notNull(),
 });
 
 // Runs Table
@@ -71,46 +68,6 @@ export const clips = sqliteTable(
   },
   (table) => ({
     pk: primaryKey({ columns: [table.turnId, table.runId] }),
-  })
-);
-
-// Junction table for many-to-many between Events and Athletes
-export const eventsToAthletes = sqliteTable(
-  "Events_Athletes",
-  {
-    athleteId: integer("athlete_id")
-      .notNull()
-      .references(() => athletes.id, { onDelete: "cascade" }),
-    eventId: integer("event_id")
-      .notNull()
-      .references(() => events.id, { onDelete: "cascade" }),
-  },
-  (table) => ({
-    pk: primaryKey({ columns: [table.athleteId, table.eventId] }),
-  })
-);
-
-export const eventsRelations = relations(events, ({ many }) => ({
-  routes: many(routes),
-  eventsToAthletes: many(eventsToAthletes),
-}));
-
-export const athletesRelations = relations(athletes, ({ many }) => ({
-  runs: many(runs),
-  eventsToAthletes: many(eventsToAthletes),
-}));
-
-export const eventsToAthletesRelations = relations(
-  eventsToAthletes,
-  ({ one }) => ({
-    event: one(events, {
-      fields: [eventsToAthletes.eventId],
-      references: [events.id],
-    }),
-    athlete: one(athletes, {
-      fields: [eventsToAthletes.athleteId],
-      references: [athletes.id],
-    }),
   })
 );
 
@@ -156,8 +113,6 @@ export const clipsRelations = relations(clips, ({ one }) => ({
 
 export const insertEventsSchema = createInsertSchema(events);
 export const insertAthletesSchema = createInsertSchema(athletes);
-export const insertEventsToAthletesSchema =
-  createInsertSchema(eventsToAthletes);
 export const insertRunsSchema = createInsertSchema(runs);
 export const insertClipsSchema = createInsertSchema(clips);
 
@@ -169,8 +124,6 @@ export const createRouteWithTurnsSchema = z.object({
       z.object({
         turnOrder: z.number().int().positive(),
         turnName: z.string().min(1),
-        latitude: z.number(),
-        longitude: z.number(),
       })
     )
     .min(1, { message: "A route must have at least one turn." }),

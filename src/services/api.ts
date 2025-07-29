@@ -6,12 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { hc } from "hono/client";
 import type { AppType } from "../../worker/index";
-import type {
-  Athlete,
-  CreateRouteWithTurns,
-  Event,
-  Run,
-} from "worker/types";
+import type { Athlete, CreateRouteWithTurns, Event, Run } from "worker/types";
 
 const client = hc<AppType>("/");
 export const queryClient = new QueryClient();
