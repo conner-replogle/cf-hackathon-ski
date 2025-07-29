@@ -534,12 +534,12 @@ const turnsApp = new Hono<{ Bindings: CfBindings }>()
       const db = drizzle(d1, { schema });
       const { route_id } = c.req.valid("query");
 
-      let query = db.select().from(schema.turns).$dynamic();
-      if (route_id) {
-        query = query.where(eq(schema.turns.routeId, route_id));
-      }
-
-      const allTurns = await query.all();
+      const allTurns = await db.query.turns.findMany({
+        where: route_id?eq(schema.turns.routeId, route_id) :undefined,
+        with: {
+          clips: true,
+        },
+      });
       return c.json(allTurns);
     }
   )

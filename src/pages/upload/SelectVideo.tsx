@@ -94,7 +94,7 @@ export default function SelectVideoPage() {
             value: athlete.id,
           }))
         : [],
-    [athletes],
+    [athletes]
   );
 
   const selectedAthleteId = form.watch("athlete");
@@ -109,7 +109,7 @@ export default function SelectVideoPage() {
             active: run.clips.find((a) => a.turnId == turnId) == null,
           }))
         : [],
-    [runs],
+    [runs, turnId]
   );
 
   const handleCreateRunClicked = async () => {
@@ -205,7 +205,7 @@ export default function SelectVideoPage() {
                         size="lg"
                         className={cn(
                           "w-full justify-between",
-                          !field.value && "text-muted-foreground",
+                          !field.value && "text-muted-foreground"
                         )}
                       >
                         {field.value
@@ -253,7 +253,7 @@ export default function SelectVideoPage() {
                                   "ml-auto",
                                   item.value === field.value
                                     ? "opacity-100"
-                                    : "opacity-0",
+                                    : "opacity-0"
                                 )}
                               />
                             </CommandItem>
@@ -266,6 +266,26 @@ export default function SelectVideoPage() {
               </FormItem>
             )}
           />
+          {selectedRun && routeTurns && routeTurns.map && (
+            <div className="flex flex-row justify-center gap-2">
+              {routeTurns?.map((turn) => {
+                const done = selectedRun.clips.find((a) => a.turnId == turn.id);
+
+                return (
+                  <div
+                    style={{
+                      border: turnId == turn.id ? "solid" : "none",
+                      backgroundColor: done ? "lightgreen" : "",
+                    }}
+                    className="flex flex-col border-2 border-green-300 items-center gap-4 justify-center rounded-4xl bg-accent p-2"
+                  >
+                    <p>{turn.turnName}</p>
+                    {done ? <Check /> : <Upload />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <FormField
             control={form.control}
             name="video"
@@ -292,7 +312,7 @@ export default function SelectVideoPage() {
                         load,
                         error,
                         progress,
-                        _abort,
+                        _abort
                       ) => {
                         try {
                           const baseUrl = `/api/runs/${selectedRunId}/clips/${turnId}/upload`;
@@ -302,7 +322,7 @@ export default function SelectVideoPage() {
                             `${baseUrl}?action=mpu-create`,
                             {
                               method: "POST",
-                            },
+                            }
                           );
 
                           if (!createResponse.ok) {
@@ -337,7 +357,7 @@ export default function SelectVideoPage() {
                               {
                                 method: "PUT",
                                 body: chunk,
-                              },
+                              }
                             );
 
                             if (!partResponse.ok) {
@@ -365,7 +385,7 @@ export default function SelectVideoPage() {
                               body: JSON.stringify({
                                 parts: uploadedParts,
                               }),
-                            },
+                            }
                           );
 
                           if (!completeResponse.ok) {
