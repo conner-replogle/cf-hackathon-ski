@@ -22,7 +22,7 @@ export default function HomePage() {
         <Button asChild variant="secondary" className="w-full" size="xl">
           <Link to="/admin">
             <ShieldUser className="size-6" />
-            Admin Dashboard
+            Dashboard
           </Link>
         </Button>
       </div>
