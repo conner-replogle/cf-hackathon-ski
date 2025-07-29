@@ -186,7 +186,7 @@ export function useRoutes(eventId?: number) {
 
 export function useRoute(id?: number) {
   return useQuery({
-    queryKey: ["routes", id],
+    queryKey: ["route", id],
     queryFn: async () => {
       if (!id) return null;
       const res = await client.api.routes[":routeId"].$get({
