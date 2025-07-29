@@ -42,18 +42,18 @@ export function Admin() {
         </div>
 
         <div className="mb-6 sm:mb-8">
-          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+          <div className="grid grid-cols-2 gap-2">
             {tabConfig.map(({ id, label, icon: Icon, count }) => (
               <Button
                 key={id}
                 variant={activeTab === id ? 'default' : 'outline'}
-                className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2 h-auto py-3 sm:py-2 px-2 sm:px-4"
                 onClick={() => setActiveTab(id)}
+                className="justify-start "
               >
                 <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
-                <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                <div className="flex items-center gap-2">
                   <span className="text-xs sm:text-sm font-medium">{label}</span>
-                  <span className="text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">
+                  <span className="text-xs text-black bg-white 0 px-1.5 py-0.5 rounded-full">
                     {count}
                   </span>
                 </div>

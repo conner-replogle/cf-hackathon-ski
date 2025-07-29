@@ -146,7 +146,7 @@ export function EditEventRoutesDialog({ event, open, onOpenChange }: EditEventRo
             </div>
             <DialogFooter>
               <Button onClick={handleCreateRoute} disabled={isCreatingRoute || !newRouteName.trim() || newRouteTurns.length === 0 || newRouteTurns.some(t => !t.turnName.trim())}>
-                {isCreatingRoute ? 'Adding...' : 'Add New Route'}
+                {isCreatingRoute ? 'Saving...' : 'Save'}
               </Button>
             </DialogFooter>
           </div>
