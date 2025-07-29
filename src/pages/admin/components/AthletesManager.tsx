@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAthletes, useCreateAthlete } from '@/services/api';
 import type { Athlete } from 'worker/types';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, User } from 'lucide-react';
 
 export function AthletesManager() {
   const { data:athletes } = useAthletes();
@@ -17,11 +17,17 @@ export function AthletesManager() {
       <div className="mt-2 mb-8">
       <CreateAthleteDialog />
       </div>
-      <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {athletes?.map((athlete: Athlete) => (
-          <Card key={athlete.id}>
-            <CardHeader>
-              <CardTitle className="truncate">{athlete.athleteName}</CardTitle>
+          <Card
+            key={athlete.id}
+            className="group hover:shadow-md transition-shadow border border-muted"
+          >
+            <CardHeader className="flex flex-col items-start space-y-2">
+              <User className="w-5 h-5 text-muted-foreground" />
+              <CardTitle className="text-lg font-semibold truncate w-full">
+                {athlete.athleteName}
+              </CardTitle>
             </CardHeader>
           </Card>
         ))}
@@ -76,7 +82,7 @@ function CreateAthleteDialog() {
           </div>
           <DialogFooter>
             <Button type="submit" disabled={isPending}>
-              {isPending ? 'Saving...' : 'Save Athlete'}
+              {isPending ? 'Saving...' : 'Save'}
             </Button>
           </DialogFooter>
         </form>
