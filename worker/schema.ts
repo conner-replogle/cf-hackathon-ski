@@ -15,6 +15,7 @@ export const events = sqliteTable("Events", {
   eventName: text("event_name").notNull().unique(),
   eventLocation: text("event_location").notNull(),
   eventDate: text("event_date").notNull(),
+  eventCoordinates: text("event_coordinates").notNull(),
 });
 
 // Athletes Table
@@ -31,8 +32,6 @@ export const routes = sqliteTable("Routes", {
     .references(() => events.id, { onDelete: "cascade" }),
   routeName: text("route_name").notNull(),
 });
-
-
 
 // Turns Table
 export const turns = sqliteTable("Turns", {
@@ -176,4 +175,3 @@ export const createRouteWithTurnsSchema = z.object({
     )
     .min(1, { message: "A route must have at least one turn." }),
 });
-

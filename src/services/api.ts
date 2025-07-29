@@ -285,3 +285,33 @@ export function useTurn(id?: number) {
     enabled: !!id,
   });
 }
+
+// Add this interface at the top with your other types
+export interface GeocodingResult {
+  place_id: string;
+  lat: string;
+  lon: string;
+  display_name: string;
+  name: string;
+  types: string[];
+  rating?: number;
+  business_status?: string;
+}
+
+export function useGeocoding(query: string) {
+  return useQuery({
+    queryKey: ["geocoding", query],
+    queryFn: async () => {
+      if (!query || query.length < 3) return [];
+
+      const res = await client.api.geo.$get({
+        query: { q: query },
+      });
+
+      if (!res.ok) throw new Error(await res.text());
+      return (await res.json()) as GeocodingResult[];
+    },
+    enabled: !!query && query.length >= 3,
+    staleTime: 5 * 60 * 1000, // 5 minutes - geocoding results don't change often
+  });
+}

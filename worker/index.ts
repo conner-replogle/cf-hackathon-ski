@@ -8,6 +8,7 @@ import { eq, inArray, count, and } from "drizzle-orm";
 type CfBindings = {
   DB: D1Database;
   VIDEOS: R2Bucket;
+  GOOGLE_MAPS_API_KEY: string;
 };
 
 const videoUploadSchema = z.object({
@@ -42,7 +43,7 @@ const eventsApp = new Hono<{ Bindings: CfBindings }>()
         return c.json({ error: "Event not found" }, 404);
       }
       return c.json(event);
-    },
+    }
   )
   // Post Event
   .post("/", zValidator("json", schema.insertEventsSchema), async (c) => {
@@ -77,7 +78,7 @@ const eventsApp = new Hono<{ Bindings: CfBindings }>()
         return c.json({ error: "Event not found" }, 404);
       }
       return c.json(updatedEvent);
-    },
+    }
   )
   // Delete Event
   .delete(
@@ -95,7 +96,7 @@ const eventsApp = new Hono<{ Bindings: CfBindings }>()
         return c.json({ error: "Event not found" }, 404);
       }
       return c.json(deletedEvent);
-    },
+    }
   )
   // Get runs for a specific event
   .get(
@@ -127,12 +128,12 @@ const eventsApp = new Hono<{ Bindings: CfBindings }>()
         .where(inArray(schema.runs.routeId, routeIds))
         .leftJoin(
           schema.athletes,
-          eq(schema.runs.athleteId, schema.athletes.id),
+          eq(schema.runs.athleteId, schema.athletes.id)
         )
         .leftJoin(schema.routes, eq(schema.runs.routeId, schema.routes.id));
 
       return c.json(runsInEvent);
-    },
+    }
   );
 
 // #endregion Events
@@ -163,7 +164,7 @@ const athletesApp = new Hono<{ Bindings: CfBindings }>()
         return c.json({ error: "Athlete not found" }, 404);
       }
       return c.json(athlete);
-    },
+    }
   )
   // Create Athlete
   .post("/", zValidator("json", schema.insertAthletesSchema), async (c) => {
@@ -198,7 +199,7 @@ const athletesApp = new Hono<{ Bindings: CfBindings }>()
         return c.json({ error: "Athlete not found" }, 404);
       }
       return c.json(updatedAthlete);
-    },
+    }
   )
   // Delete Athlete
   .delete(
@@ -216,7 +217,7 @@ const athletesApp = new Hono<{ Bindings: CfBindings }>()
         return c.json({ error: "Athlete not found" }, 404);
       }
       return c.json(deletedAthlete);
-    },
+    }
   );
 // #endregion Athletes
 
@@ -238,7 +239,7 @@ const routesApp = new Hono<{ Bindings: CfBindings }>()
         },
       });
       return c.json(allRoutes);
-    },
+    }
   )
   // Get a single route with its turns
   .get(
@@ -260,7 +261,7 @@ const routesApp = new Hono<{ Bindings: CfBindings }>()
         return c.json({ error: "Route not found" }, 404);
       }
       return c.json(route);
-    },
+    }
   )
   // Create a new route with turns
   .post(
@@ -286,7 +287,7 @@ const routesApp = new Hono<{ Bindings: CfBindings }>()
         .values(turnsToInsert)
         .returning();
       return c.json({ ...newRoute, turns: newTurns }, 201);
-    },
+    }
   );
 // #endregion Routes
 
@@ -300,7 +301,7 @@ const runsApp = new Hono<{ Bindings: CfBindings }>()
       z.object({
         route_id: z.coerce.number().optional(),
         athlete_id: z.coerce.number().optional(),
-      }),
+      })
     ),
     async (c) => {
       const d1 = c.env.DB;
@@ -317,7 +318,7 @@ const runsApp = new Hono<{ Bindings: CfBindings }>()
 
       const allRuns = await query.all();
       return c.json(allRuns);
-    },
+    }
   )
   // Get a single run with its clips
   .get(
@@ -339,7 +340,7 @@ const runsApp = new Hono<{ Bindings: CfBindings }>()
         return c.json({ error: "Run not found" }, 404);
       }
       return c.json(run);
-    },
+    }
   )
   // Create a new run with clips
   .post(
@@ -356,8 +357,8 @@ const runsApp = new Hono<{ Bindings: CfBindings }>()
         .where(
           and(
             eq(schema.runs.routeId, routeId),
-            eq(schema.runs.athleteId, athleteId),
-          ),
+            eq(schema.runs.athleteId, athleteId)
+          )
         );
       const runOrder = (existingRuns[0]?.value || 0) + 1;
 
@@ -371,7 +372,7 @@ const runsApp = new Hono<{ Bindings: CfBindings }>()
       }
 
       return c.json(newRun, 201);
-    },
+    }
   )
   // Upload a clip to a run
   .post(
@@ -410,7 +411,7 @@ const runsApp = new Hono<{ Bindings: CfBindings }>()
         console.error("Error uploading video to R2 or updating DB:", error);
         return c.json({ error: "Failed to upload video" }, 500);
       }
-    },
+    }
   )
   // Get clips for a specific run
   .get(
@@ -427,7 +428,7 @@ const runsApp = new Hono<{ Bindings: CfBindings }>()
         .where(eq(schema.clips.runId, runId))
         .all();
       return c.json(clips);
-    },
+    }
   );
 
 // #endregion Runs
@@ -450,7 +451,7 @@ const turnsApp = new Hono<{ Bindings: CfBindings }>()
 
       const allTurns = await query.all();
       return c.json(allTurns);
-    },
+    }
   )
   // Get a single turn
   .get(
@@ -469,9 +470,37 @@ const turnsApp = new Hono<{ Bindings: CfBindings }>()
         return c.json({ error: "Turn not found" }, 404);
       }
       return c.json(turn);
-    },
+    }
   );
+//#endregion Turns
 
+interface GooglePlacesResult {
+  place_id: string;
+  formatted_address: string;
+  geometry: {
+    location: {
+      lat: number;
+      lng: number;
+    };
+  };
+  name: string;
+  types: string[];
+  rating?: number;
+  business_status?: string;
+  price_level?: number;
+  user_ratings_total?: number;
+  address_components?: Array<{
+    long_name: string;
+    short_name: string;
+    types: string[];
+  }>;
+}
+
+interface GooglePlacesResponse {
+  results: GooglePlacesResult[];
+  status: string;
+  error_message?: string;
+}
 
 const app = new Hono<{ Bindings: CfBindings }>()
   .route("/api/turns", turnsApp)
@@ -479,6 +508,59 @@ const app = new Hono<{ Bindings: CfBindings }>()
   .route("/api/athletes", athletesApp)
   .route("/api/runs", runsApp)
   .route("/api/events", eventsApp)
+  .get(
+    "/api/geo",
+    zValidator(
+      "query",
+      z.object({
+        q: z.string().min(3, "Query must be at least 3 characters"),
+      })
+    ),
+    async (c) => {
+      console.log(c.env.GOOGLE_MAPS_API_KEY);
+      const { q } = c.req.valid("query");
+
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(
+          q
+        )}&key=${c.env.GOOGLE_MAPS_API_KEY}`,
+        {
+          headers: {
+            Accept: "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        return c.json({ error: "Geocoding service unavailable" }, 503);
+      }
+
+      const data = (await response.json()) as GooglePlacesResponse;
+
+      if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
+        console.error(
+          "Google Places API error:",
+          data.status,
+          data.error_message
+        );
+        return c.json({ error: "Geocoding service error" }, 500);
+      }
+
+      const transformedResults = data.results.slice(0, 5).map((result) => ({
+        place_id: result.place_id,
+        lat: result.geometry.location.lat.toString(),
+        lon: result.geometry.location.lng.toString(),
+        display_name: result.formatted_address,
+        name: result.name,
+        types: result.types,
+        rating: result.rating,
+        business_status: result.business_status,
+        address_components: result.address_components,
+      }));
+
+      return c.json(transformedResults);
+    }
+  )
   .get("/api/videos/:runId/:turnId", async (c) => {
     const runId = c.req.param("runId");
     const turnId = c.req.param("turnId");
@@ -494,7 +576,7 @@ const app = new Hono<{ Bindings: CfBindings }>()
       c.header("Accept-Ranges", "bytes");
       c.header(
         "Content-Type",
-        videoObject.httpMetadata?.contentType || "application/octet-stream",
+        videoObject.httpMetadata?.contentType || "application/octet-stream"
       );
       c.header("ETag", videoObject.httpEtag);
 
@@ -549,11 +631,10 @@ const app = new Hono<{ Bindings: CfBindings }>()
           message: "An error occurred while fetching the video",
           error: e.message,
         },
-        500,
+        500
       );
     }
   });
-
 
 export default app;
 
