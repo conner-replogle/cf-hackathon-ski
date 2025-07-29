@@ -307,15 +307,12 @@ const runsApp = new Hono<{ Bindings: CfBindings }>()
       const db = drizzle(d1, { schema });
       const { route_id, athlete_id } = c.req.valid("query");
 
-      let query = db.select().from(schema.runs).$dynamic();
-      if (route_id) {
-        query = query.where(eq(schema.runs.routeId, route_id));
-      }
-      if (athlete_id) {
-        query = query.where(eq(schema.runs.athleteId, athlete_id));
-      }
-
-      const allRuns = await query.all();
+      const allRuns = await db.query.runs.findMany({
+        where: and(route_id ? eq(schema.runs.routeId, route_id) : undefined, athlete_id ? eq(schema.runs.athleteId, athlete_id) : undefined),
+        with: {
+          clips: true,
+        },
+      });
       return c.json(allRuns);
     }
   )
