@@ -13,7 +13,7 @@ export const queryClient = new QueryClient();
 // #region Events
 export function useEvents() {
   return useQuery({
-    queryKey: ["events"],
+    queryKey: ["useEvents"],
     queryFn: async () => {
       const res = await client.api.events.$get();
       if (!res.ok) throw new Error(await res.text());
@@ -31,14 +31,14 @@ export function useCreateEvent() {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["useEvents"] });
     },
   });
 }
 
 export function useEvent(id: number) {
   return useQuery({
-    queryKey: ["events", id],
+    queryKey: ["useEvent", id],
     queryFn: async () => {
       const res = await client.api.events[":id"].$get({
         param: { id: id.toString() },
@@ -54,7 +54,7 @@ export function useEvent(id: number) {
 // #region Runs
 export function useRuns(route_id: number, athlete_id: number) {
   return useQuery({
-    queryKey: ["runs", route_id, athlete_id],
+    queryKey: ["useRuns", route_id, athlete_id],
     queryFn: async () => {
       const res = await client.api.runs.$get({
         query: {
@@ -76,14 +76,14 @@ export function useCreateRun() {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["runs"] });
+      queryClient.invalidateQueries({ queryKey: ["useRuns"] });
     },
   });
 }
 
 export function useRun(id?: number) {
   return useQuery({
-    queryKey: ["runs", id],
+    queryKey: ["useRun", id],
     queryFn: async () => {
       if (!id) return null;
       const res = await client.api.runs[":id"].$get({
@@ -98,7 +98,7 @@ export function useRun(id?: number) {
 
 export function useEventRuns(eventId?: number) {
   return useQuery({
-    queryKey: ["runs", "event", eventId],
+    queryKey: ["useEventRuns", eventId],
     queryFn: async () => {
       if (!eventId) return [];
       const res = await client.api.events[":eventId"].runs.$get({
@@ -113,7 +113,7 @@ export function useEventRuns(eventId?: number) {
 
 export function useRunClips(runId?: number) {
   return useQuery({
-    queryKey: ["clips", runId],
+    queryKey: ["useRunClips", runId],
     queryFn: async () => {
       if (!runId) return [];
       const res = await client.api.runs[":runId"].clips.$get({
@@ -131,7 +131,7 @@ export function useRunClips(runId?: number) {
 // #region Athletes
 export function useAthletes() {
   return useQuery({
-    queryKey: ["athletes"],
+    queryKey: ["useAthletes"],
     queryFn: async () => {
       const res = await client.api.athletes.$get();
       if (!res.ok) throw new Error(await res.text());
@@ -149,14 +149,14 @@ export function useCreateAthlete() {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["athletes"] });
+      queryClient.invalidateQueries({ queryKey: ["useAthletes"] });
     },
   });
 }
 
 export function useAthlete(id?: number) {
   return useQuery({
-    queryKey: ["athletes", id],
+    queryKey: ["useAthlete", id],
     queryFn: async () => {
       if (!id) return null;
       const res = await client.api.athletes[":id"].$get({
@@ -173,7 +173,7 @@ export function useAthlete(id?: number) {
 // #region Routes
 export function useRoutes(eventId?: number) {
   return useQuery({
-    queryKey: ["routes", eventId],
+    queryKey: ["useRoutes", eventId],
     queryFn: async () => {
       const res = await client.api.routes.$get({
         query: { event_id: eventId?.toString() },
@@ -186,7 +186,7 @@ export function useRoutes(eventId?: number) {
 
 export function useRoute(id?: number) {
   return useQuery({
-    queryKey: ["routes", id],
+    queryKey: ["useRoute", id],
     queryFn: async () => {
       if (!id) return null;
       const res = await client.api.routes[":routeId"].$get({
@@ -217,7 +217,7 @@ export const useCreateRoute = () => {
 // #region Turns
 export function useTurns(routeId?: number) {
   return useQuery({
-    queryKey: ["turns", routeId],
+    queryKey: ["useTurns", routeId],
     queryFn: async () => {
       if (!routeId) return [];
       const res = await client.api.turns.$get({
@@ -232,7 +232,7 @@ export function useTurns(routeId?: number) {
 
 export function useTurn(id?: number) {
   return useQuery({
-    queryKey: ["turns", id],
+    queryKey: ["useTurn", id],
     queryFn: async () => {
       if (!id) return null;
       const res = await client.api.turns[":id"].$get({
@@ -259,7 +259,7 @@ export interface GeocodingResult {
 
 export function useGeocoding(query: string) {
   return useQuery({
-    queryKey: ["geocoding", query],
+    queryKey: ["useGeocoding", query],
     queryFn: async () => {
       if (!query || query.length < 3) return [];
 

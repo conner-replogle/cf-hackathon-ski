@@ -38,9 +38,11 @@ export default function SelectTrailAndTurnPage() {
     },
   });
 
+  console.log(searchParams.get("event"));
   const { data: routes } = useRoutes(
     parseInt(searchParams.get("event") || "") || undefined,
   );
+  console.log(routes);
   const routesData = useMemo(
     () =>
       routes
@@ -49,7 +51,7 @@ export default function SelectTrailAndTurnPage() {
             value: route.id,
           }))
         : [],
-    [routes],
+    [routes, searchParams.get("event")],
   );
 
   const selectedRouteId = form.watch("route");
