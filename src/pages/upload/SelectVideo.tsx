@@ -19,8 +19,8 @@ import Combobox from "@/components/ui/combo-box";
 // @ts-ignore
 import FilePondPluginMediaPreview from "filepond-plugin-media-preview";
 import "filepond-plugin-media-preview/dist/filepond-plugin-media-preview.min.css";
-import { useAthletes, useCreateRun, useRuns, useRoute, useTurn, useRunClips, useTurns } from "@/services/api";
-import { Check, ChevronsUpDown, Plus, AlertTriangle, CheckCircle } from "lucide-react";
+import { useAthletes, useCreateRun, useRuns, useRoute, useTurn,  useTurns } from "@/services/api";
+import { Check, ChevronsUpDown, Plus,  Upload } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Command,
@@ -36,7 +36,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 registerPlugin(FilePondPluginMediaPreview);
 
@@ -92,7 +91,7 @@ export default function SelectVideoPage() {
 
   const selectedAthleteId = form.watch("athlete");
   const { data: runs } = useRuns(
-    parseInt(searchParams.get("route") || ""),
+    routeId,
     selectedAthleteId,
   );
 
@@ -102,6 +101,7 @@ export default function SelectVideoPage() {
         ? runs.map((run) => ({
             label: "Run " + run.runOrder,
             value: run.id,
+            active: run.clips.find((a)=>a.turnId == turnId) == null
           }))
         : [],
     [runs],
@@ -121,93 +121,9 @@ export default function SelectVideoPage() {
   const [comboboxOpen, setComboboxOpen] = useState(false);
 
   const selectedRunId = form.watch("run");
-  const {data:clips} = useRunClips(selectedRunId);
+
   
-  // Check if current turn already has a clip uploaded for this run
-  const currentTurnHasClip = clips?.some(clip => clip.turnId === turnId) || false;
-  
-  // Create a map of turn IDs that have clips uploaded
-  const turnsWithClips = new Set(clips?.map(clip => clip.turnId) || []);
-  const onSubmit = async (values: z.infer<typeof FormSchema>) => {
-      if (!values.video || !selectedRunId || !turnId) {
-        console.error('Missing required values for upload');
-        return;
-      }
-  
-      try {
-        const file = values.video;
-        const baseUrl = `/api/runs/${selectedRunId}/clips/${turnId}/upload`;
-        
-        // Step 1: Create multipart upload
-        const createResponse = await fetch(`${baseUrl}?action=mpu-create`, {
-          method: 'POST',
-        });
-        
-        if (!createResponse.ok) {
-          throw new Error('Failed to create multipart upload');
-        }
-        
-        const { uploadId } = await createResponse.json() as { key: string; uploadId: string };
-        
-        // Step 2: Upload file in chunks
-        const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
-        const totalParts = Math.ceil(file.size / CHUNK_SIZE);
-        const uploadedParts: Array<{ partNumber: number; etag: string }> = [];
-        
-        for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
-          const start = (partNumber - 1) * CHUNK_SIZE;
-          const end = Math.min(start + CHUNK_SIZE, file.size);
-          const chunk = file.slice(start, end);
-          
-          const partResponse = await fetch(
-            `${baseUrl}?action=mpu-uploadpart&uploadId=${uploadId}&partNumber=${partNumber}`,
-            {
-              method: 'PUT',
-              body: chunk,
-            }
-          );
-          
-          if (!partResponse.ok) {
-            throw new Error(`Failed to upload part ${partNumber}`);
-          }
-          
-          const partResult = await partResponse.json() as { etag: string };
-          uploadedParts.push({
-            partNumber,
-            etag: partResult.etag,
-          });
-        }
-        
-        // Step 3: Complete multipart upload
-        const completeResponse = await fetch(
-          `${baseUrl}?action=mpu-complete&uploadId=${uploadId}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              parts: uploadedParts,
-            }),
-          }
-        );
-        
-        if (!completeResponse.ok) {
-          throw new Error('Failed to complete multipart upload');
-        }
-        
-        const result = await completeResponse.json();
-        console.log('Upload completed:', result);
-        
-        setShowSuccessMsg(true);
-        setTimeout(() => {
-          navigate('/watch');
-        }, 2000);
-      } catch (error) {
-        console.error('Upload error:', error);
-      }
-    };
-  
+  const selectedRun =  runs?.find((run)=> run.id ==selectedRunId);
 
   return (
     <Layout description="Finally upload a video and tag an athlete">
@@ -238,7 +154,7 @@ export default function SelectVideoPage() {
         )}
         
         {/* Duplicate Upload Warning */}
-        {currentTurnHasClip && selectedRunId && (
+        {/* { && selectedRunId && (
           <Alert className="mb-4 border-amber-200 bg-amber-50">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800">
@@ -246,82 +162,11 @@ export default function SelectVideoPage() {
               Uploading a new video will replace the existing clip.
             </AlertDescription>
           </Alert>
-        )}
+        )} */}
         
         {/* Clips Status Display */}
-        {selectedRunId && routeTurns && routeTurns.length > 0 && (
-          <Card className="mb-4">
-            <CardHeader>
-              <CardTitle className="text-lg">Upload Status for This Run</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {routeTurns.map((routeTurn) => {
-                  const hasClip = turnsWithClips.has(routeTurn.id);
-                  const isCurrentTurn = routeTurn.id === turnId;
-                  
-                  return (
-                    <div
-                      key={routeTurn.id}
-                      className={cn(
-                        "flex items-center gap-2 p-3 rounded-lg border transition-colors",
-                        isCurrentTurn 
-                          ? "border-blue-200 bg-blue-50" 
-                          : hasClip 
-                          ? "border-green-200 bg-green-50" 
-                          : "border-gray-200 bg-gray-50"
-                      )}
-                    >
-                      {hasClip ? (
-                        <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
-                      ) : (
-                        <div className="h-4 w-4 rounded-full border-2 border-gray-300 flex-shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className={cn(
-                          "text-sm font-medium truncate",
-                          isCurrentTurn 
-                            ? "text-blue-900" 
-                            : hasClip 
-                            ? "text-green-900" 
-                            : "text-gray-900"
-                        )}>
-                          {routeTurn.turnName}
-                        </p>
-                        <p className={cn(
-                          "text-xs",
-                          isCurrentTurn 
-                            ? "text-blue-600" 
-                            : hasClip 
-                            ? "text-green-600" 
-                            : "text-gray-500"
-                        )}>
-                          {isCurrentTurn 
-                            ? "Current selection" 
-                            : hasClip 
-                            ? "Clip uploaded" 
-                            : "No clip"}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="mt-4 flex items-center gap-4 text-xs text-gray-600">
-                <div className="flex items-center gap-1">
-                  <CheckCircle className="h-3 w-3 text-green-600" />
-                  <span>Uploaded ({turnsWithClips.size})</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="h-3 w-3 rounded-full border border-gray-400" />
-                  <span>Pending ({routeTurns.length - turnsWithClips.size})</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
         
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form  className="space-y-4">
           
           <FormField
             control={form.control}
@@ -385,6 +230,7 @@ export default function SelectVideoPage() {
                         <CommandGroup>
                           {runsData.map((item) => (
                             <CommandItem
+                              disabled={!item.active}
                               value={item.value.toString()}
                               key={item.label}
                               onSelect={(val) => {
@@ -393,7 +239,7 @@ export default function SelectVideoPage() {
                                 setComboboxOpen(false);
                               }}
                             >
-                              {item.label}
+                              {item.label} {!item.active && <Upload color="green"/>}
                               <Check
                                 className={cn(
                                   "ml-auto",
@@ -412,6 +258,37 @@ export default function SelectVideoPage() {
               </FormItem>
             )}
           />
+          {
+            selectedRun && (
+              <div className="flex flex-row justify-center gap-2">
+                {
+                  routeTurns?.map((turn) => {
+                    let done = selectedRun.clips.find((a) => a.turnId == turn.id)
+
+                    return (
+                      <div style={
+                        {
+                          border: turnId == turn.id ? "solid" :"none",
+                          backgroundColor: done?"lightgreen":""
+                          
+                        }
+                      } className="flex flex-col border-2 border-green-300 items-center gap-4 justify-center rounded-4xl bg-accent p-2">
+                        <p>{turn.turnName}</p>
+                        {
+                          done ? 
+                          <Check/>
+                          :
+                           <Upload/>
+                        }
+                      </div>
+                    )
+
+                  })
+                  
+                }
+              </div>
+            )
+          }
          <FormField
             control={form.control}
             name="video"
