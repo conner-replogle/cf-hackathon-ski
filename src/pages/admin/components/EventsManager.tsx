@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCreateEvent, useEvents } from '@/services/api';
 import type { Event } from 'worker/types';
-import { Edit, PlusCircle } from 'lucide-react';
+import { Edit, MapPin, PlusCircle } from 'lucide-react';
 import { EditEventRoutesDialog } from './EditEventRoutesDialog';
 
 export function EventsManager() {
@@ -21,8 +21,8 @@ export function EventsManager() {
 
   return (
     <section>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Events</h2>
+      <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Events</h2>
+      <div className="mt-2 mb-8">
         <CreateEventDialog />
       </div>
       <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
@@ -30,15 +30,17 @@ export function EventsManager() {
           <Card key={event.id}>
             <CardHeader>
               <CardTitle className="truncate">{event.eventName}</CardTitle>
-              <CardDescription>{event.eventLocation}</CardDescription>
+              <CardDescription className="flex items-center">
+                <MapPin className="w-4 h-4" />
+                {event.eventLocation}
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-500">ID: {event.id}</p>
-              <Button variant="outline" size="sm" className="mt-2" onClick={() => handleEditClick(event)}>
+            <CardFooter>
+              <Button variant="outline" size="sm" onClick={() => handleEditClick(event)}>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Routes & Turns
               </Button>
-            </CardContent>
+            </CardFooter>
           </Card>
         ))}
       </div>
@@ -113,7 +115,7 @@ function CreateEventDialog() {
           </div>
           <DialogFooter>
             <Button type="submit" disabled={isPending}>
-              {isPending ? 'Saving...' : 'Save Event'}
+              {isPending ? 'Creating...' : 'Save'}
             </Button>
           </DialogFooter>
         </form>

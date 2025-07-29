@@ -9,20 +9,20 @@ export default function HomePage() {
         <Button asChild className="w-full" size="xl">
           <Link to="/upload/event">
             <FileUp className="size-6" />
-            Upload Videos
+            Upload Clips
           </Link>
         </Button>
         <Button asChild className="w-full" size="xl">
           <Link to="/watch">
             <Film className="size-6" />
-            Watch Videos
+            Watch Clips
           </Link>
         </Button>
         <hr />
         <Button asChild variant="secondary" className="w-full" size="xl">
           <Link to="/admin">
             <ShieldUser className="size-6" />
-            Admin Stuff
+            Admin Dashboard
           </Link>
         </Button>
       </div>
