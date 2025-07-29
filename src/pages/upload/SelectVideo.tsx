@@ -19,8 +19,15 @@ import Combobox from "@/components/ui/combo-box";
 // @ts-ignore
 import FilePondPluginMediaPreview from "filepond-plugin-media-preview";
 import "filepond-plugin-media-preview/dist/filepond-plugin-media-preview.min.css";
-import { useAthletes, useCreateRun, useRuns, useRoute, useTurn,  useTurns } from "@/services/api";
-import { Check, ChevronsUpDown, Plus,  Upload } from "lucide-react";
+import {
+  useAthletes,
+  useCreateRun,
+  useRuns,
+  useRoute,
+  useTurn,
+  useTurns,
+} from "@/services/api";
+import { Check, ChevronsUpDown, Plus, Upload } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Command,
@@ -57,12 +64,13 @@ export default function SelectVideoPage() {
   const turnId = parseInt(searchParams?.get("turn") || "");
   const routeId = parseInt(searchParams?.get("route") || "");
   const { mutateAsync: createRun } = useCreateRun();
-  
+
   // Fetch route and turn data for display
   const { data: route } = useRoute(routeId);
   const { data: turn } = useTurn(turnId);
   const { data: routeTurns } = useTurns(routeId);
-  
+  console.log(routeTurns);
+
   useEffect(() => {
     const params = ["event", "route", "turn"];
     for (const param of params) {
@@ -86,14 +94,11 @@ export default function SelectVideoPage() {
             value: athlete.id,
           }))
         : [],
-    [athletes],
+    [athletes]
   );
 
   const selectedAthleteId = form.watch("athlete");
-  const { data: runs } = useRuns(
-    routeId,
-    selectedAthleteId,
-  );
+  const { data: runs } = useRuns(routeId, selectedAthleteId);
 
   const runsData = useMemo(
     () =>
@@ -101,10 +106,10 @@ export default function SelectVideoPage() {
         ? runs.map((run) => ({
             label: "Run " + run.runOrder,
             value: run.id,
-            active: run.clips.find((a)=>a.turnId == turnId) == null
+            active: run.clips.find((a) => a.turnId == turnId) == null,
           }))
         : [],
-    [runs,turnId],
+    [runs, turnId]
   );
 
   const handleCreateRunClicked = async () => {
@@ -122,8 +127,7 @@ export default function SelectVideoPage() {
 
   const selectedRunId = form.watch("run");
 
-  
-  const selectedRun =  runs?.find((run)=> run.id ==selectedRunId);
+  const selectedRun = runs?.find((run) => run.id == selectedRunId);
 
   return (
     <Layout description="Finally upload a video and tag an athlete">
@@ -138,13 +142,17 @@ export default function SelectVideoPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {route && (
                   <div>
-                    <h4 className="font-medium text-sm text-gray-600 mb-1">Route</h4>
+                    <h4 className="font-medium text-sm text-gray-600 mb-1">
+                      Route
+                    </h4>
                     <p className="text-lg font-semibold">{route.routeName}</p>
                   </div>
                 )}
                 {turn && (
                   <div>
-                    <h4 className="font-medium text-sm text-gray-600 mb-1">Turn</h4>
+                    <h4 className="font-medium text-sm text-gray-600 mb-1">
+                      Turn
+                    </h4>
                     <p className="text-lg font-semibold">{turn.turnName}</p>
                   </div>
                 )}
@@ -152,7 +160,7 @@ export default function SelectVideoPage() {
             </CardContent>
           </Card>
         )}
-        
+
         {/* Duplicate Upload Warning */}
         {/* { && selectedRunId && (
           <Alert className="mb-4 border-amber-200 bg-amber-50">
@@ -163,11 +171,10 @@ export default function SelectVideoPage() {
             </AlertDescription>
           </Alert>
         )} */}
-        
+
         {/* Clips Status Display */}
-        
-        <form  className="space-y-4">
-          
+
+        <form className="space-y-4">
           <FormField
             control={form.control}
             name="athlete"
@@ -198,7 +205,7 @@ export default function SelectVideoPage() {
                         size="lg"
                         className={cn(
                           "w-full justify-between",
-                          !field.value && "text-muted-foreground",
+                          !field.value && "text-muted-foreground"
                         )}
                       >
                         {field.value
@@ -239,13 +246,14 @@ export default function SelectVideoPage() {
                                 setComboboxOpen(false);
                               }}
                             >
-                              {item.label} {!item.active && <Upload color="green"/>}
+                              {item.label}{" "}
+                              {!item.active && <Upload color="green" />}
                               <Check
                                 className={cn(
                                   "ml-auto",
                                   item.value === field.value
                                     ? "opacity-100"
-                                    : "opacity-0",
+                                    : "opacity-0"
                                 )}
                               />
                             </CommandItem>
@@ -258,50 +266,37 @@ export default function SelectVideoPage() {
               </FormItem>
             )}
           />
-          {
-            selectedRun && routeTurns && routeTurns.map  && (
-              <div className="flex flex-row justify-center gap-2">
-                {
-                  routeTurns?.map((turn) => {
-                    const done = selectedRun.clips.find((a) => a.turnId == turn.id)
+          {selectedRun && routeTurns && routeTurns.map && (
+            <div className="flex flex-row justify-center gap-2">
+              {routeTurns?.map((turn) => {
+                const done = selectedRun.clips.find((a) => a.turnId == turn.id);
 
-                    return (
-                      <div style={
-                        {
-                          border: turnId == turn.id ? "solid" :"none",
-                          backgroundColor: done?"lightgreen":""
-                          
-                        }
-                      } className="flex flex-col border-2 border-green-300 items-center gap-4 justify-center rounded-4xl bg-accent p-2">
-                        <p>{turn.turnName}</p>
-                        {
-                          done ? 
-                          <Check/>
-                          :
-                           <Upload/>
-                        }
-                      </div>
-                    )
-
-                  })
-                  
-                }
-              </div>
-            )
-          }
-         <FormField
+                return (
+                  <div
+                    style={{
+                      border: turnId == turn.id ? "solid" : "none",
+                      backgroundColor: done ? "lightgreen" : "",
+                    }}
+                    className="flex flex-col border-2 border-green-300 items-center gap-4 justify-center rounded-4xl bg-accent p-2"
+                  >
+                    <p>{turn.turnName}</p>
+                    {done ? <Check /> : <Upload />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <FormField
             control={form.control}
             name="video"
-          
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Video</FormLabel>
                 <FormControl>
                   <FilePond
-                  allowRevert={false}
-                  allowRemove={false}
-                  
-                    disabled={selectedRunId === undefined }
+                    allowRevert={false}
+                    allowRemove={false}
+                    disabled={selectedRunId === undefined}
                     files={field.value && [field.value]}
                     onupdatefiles={(files) => {
                       if (files) {
@@ -309,86 +304,104 @@ export default function SelectVideoPage() {
                         form.clearErrors();
                       }
                     }}
-                    server={
-                     {
-                       process: async (_fieldName, file, _metadata, load, error, progress) =>{
-                        
-                    
+                    server={{
+                      process: async (
+                        _fieldName,
+                        file,
+                        _metadata,
+                        load,
+                        error,
+                        progress,
+                        _abort
+                      ) => {
                         try {
                           const baseUrl = `/api/runs/${selectedRunId}/clips/${turnId}/upload`;
-                          
+
                           // Step 1: Create multipart upload
-                          const createResponse = await fetch(`${baseUrl}?action=mpu-create`, {
-                            method: 'POST',
-                          });
-                          
+                          const createResponse = await fetch(
+                            `${baseUrl}?action=mpu-create`,
+                            {
+                              method: "POST",
+                            }
+                          );
+
                           if (!createResponse.ok) {
-                            error('Failed to create multipart upload');
+                            error("Failed to create multipart upload");
                           }
-                          
-                          const { uploadId } = await createResponse.json() as { key: string; uploadId: string };
-                          
+
+                          const { uploadId } =
+                            (await createResponse.json()) as {
+                              key: string;
+                              uploadId: string;
+                            };
+
                           // Step 2: Upload file in chunks
                           const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB chunks
                           const totalParts = Math.ceil(file.size / CHUNK_SIZE);
-                          const uploadedParts: Array<{ partNumber: number; etag: string }> = [];
-                          
-                          for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+                          const uploadedParts: Array<{
+                            partNumber: number;
+                            etag: string;
+                          }> = [];
+
+                          for (
+                            let partNumber = 1;
+                            partNumber <= totalParts;
+                            partNumber++
+                          ) {
                             const start = (partNumber - 1) * CHUNK_SIZE;
                             const end = Math.min(start + CHUNK_SIZE, file.size);
                             const chunk = file.slice(start, end);
-                            
+
                             const partResponse = await fetch(
                               `${baseUrl}?action=mpu-uploadpart&uploadId=${uploadId}&partNumber=${partNumber}`,
                               {
-                                method: 'PUT',
+                                method: "PUT",
                                 body: chunk,
                               }
                             );
-                            
-                            if (!partResponse.ok) {
-                              error(`Failed to upload part ${partNumber}`)
 
+                            if (!partResponse.ok) {
+                              error(`Failed to upload part ${partNumber}`);
                             }
-                            
-                            const partResult = await partResponse.json() as { etag: string };
+
+                            const partResult = (await partResponse.json()) as {
+                              etag: string;
+                            };
                             uploadedParts.push({
                               partNumber,
                               etag: partResult.etag,
                             });
-                            progress(true,partNumber,totalParts)
+                            progress(true, partNumber, totalParts);
                           }
-                          
+
                           // Step 3: Complete multipart upload
                           const completeResponse = await fetch(
                             `${baseUrl}?action=mpu-complete&uploadId=${uploadId}`,
                             {
-                              method: 'POST',
+                              method: "POST",
                               headers: {
-                                'Content-Type': 'application/json',
+                                "Content-Type": "application/json",
                               },
                               body: JSON.stringify({
                                 parts: uploadedParts,
                               }),
                             }
                           );
-                          
+
                           if (!completeResponse.ok) {
-                            error("Failed to complete multipart upload")
+                            error("Failed to complete multipart upload");
                           }
-                          
+
                           const result = await completeResponse.json();
-                          console.log('Upload completed:', result);
-                          
+                          console.log("Upload completed:", result);
+
                           load(uploadId);
                           setShowSuccessMsg(true);
-                          
                         } catch (err) {
-                          error(String(err))
+                          error(String(err));
                         }
-                       }
-                     }
-                    }
+                      },
+                    }}
                     allowMultiple={false}
                     name="files"
                     labelIdle='Drag & Drop videos or <span class="filepond--label-action">Click Here</span>'
