@@ -52,25 +52,20 @@ function CreateRouteDialog() {
   const [open, setOpen] = useState(false);
   const [routeName, setRouteName] = useState('');
   const [eventId, setEventId] = useState<string | undefined>(undefined);
-  const [turns, setTurns] = useState([{ turn_name: '', latitude: 0, longitude: 0 }]);
+  const [turns, setTurns] = useState([{ turn_name: ''}]);
   const { data: events } = useEvents();
   const { mutateAsync: createRoute, isPending } = useCreateRoute();
 
-  const handleTurnChange = (index: number, field: 'turn_name' | 'latitude' | 'longitude', value: string) => {
+  const handleTurnChange = (index: number, field: 'turn_name', value: string) => {
     const newTurns = [...turns];
     const turn = { ...newTurns[index] };
-
-    if (field === 'latitude' || field === 'longitude') {
-      turn[field] = parseFloat(value);
-    } else {
-      turn[field] = value;
-    }
+    turn[field] = value;
     newTurns[index] = turn;
     setTurns(newTurns);
   };
 
   const addTurn = () => {
-    setTurns([...turns, { turn_name: '', latitude: 0, longitude: 0 }]);
+    setTurns([...turns, { turn_name: ''}]);
   };
 
   const removeTurn = (index: number) => {
@@ -84,8 +79,6 @@ function CreateRouteDialog() {
     const formattedTurns = turns.map((turn, index) => ({
       turnOrder: index + 1,
       turnName: turn.turn_name,
-      latitude: turn.latitude,
-      longitude: turn.longitude,
     }));
 
     await createRoute({
@@ -95,7 +88,7 @@ function CreateRouteDialog() {
     });
     setRouteName('');
     setEventId(undefined);
-    setTurns([{ turn_name: '', latitude: 0, longitude: 0 }]);
+    setTurns([{ turn_name: ''}]);
     setOpen(false);
   };
 
@@ -156,20 +149,6 @@ function CreateRouteDialog() {
                       placeholder={`Turn ${index + 1} Name`}
                       className="flex-grow"
                     />
-                    <Input
-                      type="number"
-                      value={turn.latitude}
-                      onChange={(e) => handleTurnChange(index, 'latitude', e.target.value)}
-                      placeholder="Lat"
-                      className="w-24"
-                    />
-                    <Input
-                      type="number"
-                      value={turn.longitude}
-                      onChange={(e) => handleTurnChange(index, 'longitude', e.target.value)}
-                      placeholder="Lon"
-                      className="w-24"
-                    />
                     <Button type="button" variant="ghost" size="icon" onClick={() => removeTurn(index)}>
                       <X className="h-4 w-4" />
                     </Button>
@@ -184,7 +163,7 @@ function CreateRouteDialog() {
           </div>
           <DialogFooter>
             <Button type="submit" disabled={isPending || !eventId}>
-              {isPending ? 'Saving...' : 'Save Route'}
+              {isPending ? 'Saving...' : 'Save'}
             </Button>
           </DialogFooter>
         </form>
