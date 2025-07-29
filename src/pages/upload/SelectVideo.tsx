@@ -19,8 +19,9 @@ import Combobox from "@/components/ui/combo-box";
 // @ts-ignore
 import FilePondPluginMediaPreview from "filepond-plugin-media-preview";
 import "filepond-plugin-media-preview/dist/filepond-plugin-media-preview.min.css";
-import { useAthletes, useCreateRun, useRuns } from "@/services/api";
-import { Check, ChevronsUpDown, Plus } from "lucide-react";
+import { useAthletes, useCreateRun, useRuns, useRoute, useTurn, useRunClips, useTurns } from "@/services/api";
+import { Check, ChevronsUpDown, Plus, AlertTriangle, CheckCircle } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Command,
   CommandEmpty,
@@ -35,6 +36,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 registerPlugin(FilePondPluginMediaPreview);
 
@@ -54,7 +56,14 @@ export default function SelectVideoPage() {
 
   const [showSuccessMsg, setShowSuccessMsg] = useState(false);
   const turnId = parseInt(searchParams?.get("turn") || "");
+  const routeId = parseInt(searchParams?.get("route") || "");
   const { mutateAsync: createRun } = useCreateRun();
+  
+  // Fetch route and turn data for display
+  const { data: route } = useRoute(routeId);
+  const { data: turn } = useTurn(turnId);
+  const { data: routeTurns } = useTurns(routeId);
+  
   useEffect(() => {
     const params = ["event", "route", "turn"];
     for (const param of params) {
@@ -112,6 +121,13 @@ export default function SelectVideoPage() {
   const [comboboxOpen, setComboboxOpen] = useState(false);
 
   const selectedRunId = form.watch("run");
+  const {data:clips} = useRunClips(selectedRunId);
+  
+  // Check if current turn already has a clip uploaded for this run
+  const currentTurnHasClip = clips?.some(clip => clip.turnId === turnId) || false;
+  
+  // Create a map of turn IDs that have clips uploaded
+  const turnsWithClips = new Set(clips?.map(clip => clip.turnId) || []);
   const onSubmit = async (values: z.infer<typeof FormSchema>) => {
       if (!values.video || !selectedRunId || !turnId) {
         console.error('Missing required values for upload');
@@ -196,6 +212,115 @@ export default function SelectVideoPage() {
   return (
     <Layout description="Finally upload a video and tag an athlete">
       <Form {...form}>
+        {/* Current Route and Turn Display */}
+        {(route || turn) && (
+          <Card className="mb-4">
+            <CardHeader>
+              <CardTitle className="text-lg">Current Selection</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {route && (
+                  <div>
+                    <h4 className="font-medium text-sm text-gray-600 mb-1">Route</h4>
+                    <p className="text-lg font-semibold">{route.routeName}</p>
+                  </div>
+                )}
+                {turn && (
+                  <div>
+                    <h4 className="font-medium text-sm text-gray-600 mb-1">Turn</h4>
+                    <p className="text-lg font-semibold">{turn.turnName}</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
+        {/* Duplicate Upload Warning */}
+        {currentTurnHasClip && selectedRunId && (
+          <Alert className="mb-4 border-amber-200 bg-amber-50">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800">
+              <strong>Warning:</strong> This turn already has a clip uploaded for the selected run. 
+              Uploading a new video will replace the existing clip.
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {/* Clips Status Display */}
+        {selectedRunId && routeTurns && routeTurns.length > 0 && (
+          <Card className="mb-4">
+            <CardHeader>
+              <CardTitle className="text-lg">Upload Status for This Run</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {routeTurns.map((routeTurn) => {
+                  const hasClip = turnsWithClips.has(routeTurn.id);
+                  const isCurrentTurn = routeTurn.id === turnId;
+                  
+                  return (
+                    <div
+                      key={routeTurn.id}
+                      className={cn(
+                        "flex items-center gap-2 p-3 rounded-lg border transition-colors",
+                        isCurrentTurn 
+                          ? "border-blue-200 bg-blue-50" 
+                          : hasClip 
+                          ? "border-green-200 bg-green-50" 
+                          : "border-gray-200 bg-gray-50"
+                      )}
+                    >
+                      {hasClip ? (
+                        <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      ) : (
+                        <div className="h-4 w-4 rounded-full border-2 border-gray-300 flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className={cn(
+                          "text-sm font-medium truncate",
+                          isCurrentTurn 
+                            ? "text-blue-900" 
+                            : hasClip 
+                            ? "text-green-900" 
+                            : "text-gray-900"
+                        )}>
+                          {routeTurn.turnName}
+                        </p>
+                        <p className={cn(
+                          "text-xs",
+                          isCurrentTurn 
+                            ? "text-blue-600" 
+                            : hasClip 
+                            ? "text-green-600" 
+                            : "text-gray-500"
+                        )}>
+                          {isCurrentTurn 
+                            ? "Current selection" 
+                            : hasClip 
+                            ? "Clip uploaded" 
+                            : "No clip"}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-4 flex items-center gap-4 text-xs text-gray-600">
+                <div className="flex items-center gap-1">
+                  <CheckCircle className="h-3 w-3 text-green-600" />
+                  <span>Uploaded ({turnsWithClips.size})</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="h-3 w-3 rounded-full border border-gray-400" />
+                  <span>Pending ({routeTurns.length - turnsWithClips.size})</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           
           <FormField
@@ -327,7 +452,7 @@ export default function SelectVideoPage() {
                           const { uploadId } = await createResponse.json() as { key: string; uploadId: string };
                           
                           // Step 2: Upload file in chunks
-                          const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
+                          const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB chunks
                           const totalParts = Math.ceil(file.size / CHUNK_SIZE);
                           const uploadedParts: Array<{ partNumber: number; etag: string }> = [];
                           
