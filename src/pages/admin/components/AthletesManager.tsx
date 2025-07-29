@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAthletes, useCreateAthlete, useEvents } from '@/services/api';
+import { useAthletes, useCreateAthlete } from '@/services/api';
 import type { Athlete } from 'worker/types';
 import { PlusCircle } from 'lucide-react';
 

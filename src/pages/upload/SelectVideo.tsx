@@ -309,7 +309,7 @@ export default function SelectVideoPage() {
                     }}
                     server={
                      {
-                       process: async (fieldName, file, metadata, load, error, progress, abort) =>{
+                       process: async (_fieldName, file, _metadata, load, error, progress, _abort) =>{
                         
                     
                         try {
