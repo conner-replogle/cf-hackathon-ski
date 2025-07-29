@@ -19,7 +19,6 @@ import Combobox from "@/components/ui/combo-box";
 // @ts-ignore
 import FilePondPluginMediaPreview from "filepond-plugin-media-preview";
 import "filepond-plugin-media-preview/dist/filepond-plugin-media-preview.min.css";
-import { useUploadVideoClip } from "@/services/api";
 import { useAthletes, useCreateRun, useRuns } from "@/services/api";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import {
@@ -52,9 +51,9 @@ const FormSchema = z.object({
 export default function SelectVideoPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { mutateAsync: uploadVideoClip } = useUploadVideoClip();
 
   const [showSuccessMsg, setShowSuccessMsg] = useState(false);
+  const turnId = parseInt(searchParams?.get("turn") || "");
   const { mutateAsync: createRun } = useCreateRun();
   useEffect(() => {
     const params = ["event", "route", "turn"];
@@ -113,20 +112,86 @@ export default function SelectVideoPage() {
   const [comboboxOpen, setComboboxOpen] = useState(false);
 
   const selectedRunId = form.watch("run");
-  async function onSubmit(data: z.infer<typeof FormSchema>) {
-    console.log({
-      runId: selectedRunId,
-      turnId: parseInt(searchParams?.get("turn") || ""),
-      video: data.video,
-    });
-    await uploadVideoClip({
-      runId: selectedRunId,
-      turnId: parseInt(searchParams?.get("turn") || ""),
-      video: data.video,
-    });
-    setShowSuccessMsg(true);
-    form.reset();
-  }
+const onSubmit = async (values: z.infer<typeof FormSchema>) => {
+      if (!values.video || !selectedRunId || !turnId) {
+        console.error('Missing required values for upload');
+        return;
+      }
+  
+      try {
+        const file = values.video;
+        const baseUrl = `/api/runs/${selectedRunId}/clips/${turnId}/upload`;
+        
+        // Step 1: Create multipart upload
+        const createResponse = await fetch(`${baseUrl}?action=mpu-create`, {
+          method: 'POST',
+        });
+        
+        if (!createResponse.ok) {
+          throw new Error('Failed to create multipart upload');
+        }
+        
+        const { uploadId } = await createResponse.json() as { key: string; uploadId: string };
+        
+        // Step 2: Upload file in chunks
+        const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
+        const totalParts = Math.ceil(file.size / CHUNK_SIZE);
+        const uploadedParts: Array<{ partNumber: number; etag: string }> = [];
+        
+        for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+          const start = (partNumber - 1) * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, file.size);
+          const chunk = file.slice(start, end);
+          
+          const partResponse = await fetch(
+            `${baseUrl}?action=mpu-uploadpart&uploadId=${uploadId}&partNumber=${partNumber}`,
+            {
+              method: 'PUT',
+              body: chunk,
+            }
+          );
+          
+          if (!partResponse.ok) {
+            throw new Error(`Failed to upload part ${partNumber}`);
+          }
+          
+          const partResult = await partResponse.json() as { etag: string };
+          uploadedParts.push({
+            partNumber,
+            etag: partResult.etag,
+          });
+        }
+        
+        // Step 3: Complete multipart upload
+        const completeResponse = await fetch(
+          `${baseUrl}?action=mpu-complete&uploadId=${uploadId}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              parts: uploadedParts,
+            }),
+          }
+        );
+        
+        if (!completeResponse.ok) {
+          throw new Error('Failed to complete multipart upload');
+        }
+        
+        const result = await completeResponse.json();
+        console.log('Upload completed:', result);
+        
+        setShowSuccessMsg(true);
+        setTimeout(() => {
+          navigate('/watch');
+        }, 2000);
+      } catch (error) {
+        console.error('Upload error:', error);
+      }
+    };
+  
 
   return (
     <Layout description="Finally upload a video and tag an athlete">
@@ -135,11 +200,13 @@ export default function SelectVideoPage() {
           <FormField
             control={form.control}
             name="video"
+          
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Video</FormLabel>
                 <FormControl>
                   <FilePond
+                  
                     files={field.value && [field.value]}
                     onupdatefiles={(files) => {
                       if (files) {
@@ -147,6 +214,7 @@ export default function SelectVideoPage() {
                         form.clearErrors();
                       }
                     }}
+                   
                     allowMultiple={false}
                     name="files"
                     labelIdle='Drag & Drop videos or <span class="filepond--label-action">Click Here</span>'

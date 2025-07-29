@@ -1,19 +1,15 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAthletes, useCreateAthlete, useEvents } from '@/services/api';
+import { useAthletes, useCreateAthlete} from '@/services/api';
 import type { Athlete } from 'worker/types';
 import { PlusCircle } from 'lucide-react';
 
 export function AthletesManager() {
   const { data:athletes } = useAthletes();
-  const { data:events } = useEvents();
-
-  const eventMap = new Map(events?.map(e => [e.id.toString(), e.eventName]));
 
   return (
     <section>
