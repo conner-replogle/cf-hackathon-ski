@@ -104,7 +104,7 @@ export default function SelectVideoPage() {
             active: run.clips.find((a)=>a.turnId == turnId) == null
           }))
         : [],
-    [runs],
+    [runs,turnId],
   );
 
   const handleCreateRunClicked = async () => {
@@ -259,11 +259,11 @@ export default function SelectVideoPage() {
             )}
           />
           {
-            selectedRun && (
+            selectedRun && routeTurns && (
               <div className="flex flex-row justify-center gap-2">
                 {
                   routeTurns?.map((turn) => {
-                    let done = selectedRun.clips.find((a) => a.turnId == turn.id)
+                    const done = selectedRun.clips.find((a) => a.turnId == turn.id)
 
                     return (
                       <div style={
@@ -311,7 +311,7 @@ export default function SelectVideoPage() {
                     }}
                     server={
                      {
-                       process: async (_fieldName, file, _metadata, load, error, progress, _abort) =>{
+                       process: async (_fieldName, file, _metadata, load, error, progress) =>{
                         
                     
                         try {
