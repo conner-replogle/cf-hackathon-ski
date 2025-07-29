@@ -4,6 +4,7 @@ import * as schema from "./schema";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { eq, inArray, count, and } from "drizzle-orm";
+import type { Clip } from "./types";
 
 type CfBindings = {
   DB: D1Database;
@@ -11,11 +12,9 @@ type CfBindings = {
   GOOGLE_MAPS_API_KEY: string;
 };
 
-const videoUploadSchema = z.object({
-  video: z.instanceof(File),
-  runId: z.coerce.string(),
-  turnId: z.coerce.string(),
-});
+
+
+
 
 // #region Events
 const eventsApp = new Hono<{ Bindings: CfBindings }>()
@@ -374,42 +373,136 @@ const runsApp = new Hono<{ Bindings: CfBindings }>()
       return c.json(newRun, 201);
     }
   )
-  // Upload a clip to a run
+  // Upload a clip to a run - multipart upload endpoint
   .post(
-    "/:runId/clips/upload",
-    zValidator("param", z.object({ runId: z.coerce.string() })),
-    zValidator("form", videoUploadSchema),
+    "/:runId/clips/:turnId/upload",
+    zValidator("param", z.object({turnId:z.coerce.string(), runId: z.coerce.string() })),
     async (c) => {
-      const { VIDEOS, DB } = c.env;
+      const { DB, VIDEOS } = c.env;
       const db = drizzle(DB, { schema });
-      const { runId } = c.req.valid("param");
-      const { video, turnId } = c.req.valid("form");
+      const { runId, turnId } = c.req.valid("param");
+      const bucket = VIDEOS;
+      
+      const url = new URL(c.req.url);
+      const key = `${runId}/${turnId}`;
+      const action = url.searchParams.get("action");
 
-      if (!video) {
-        return c.json({ error: "No video file provided" }, 400);
+      if (action === null) {
+        return new Response("Missing action type", { status: 400 });
       }
 
-      const videoKey = `${runId}/${turnId}`;
+      // Route the request based on the HTTP method and action type
+      switch (c.req.method) {
+        case "POST":
+          switch (action) {
+            case "mpu-create": {
+              const multipartUpload = await bucket.createMultipartUpload(key);
+              return c.json({
+                key: multipartUpload.key,
+                uploadId: multipartUpload.uploadId,
+              });
+            }
+            case "mpu-complete": {
+              const uploadId = url.searchParams.get("uploadId");
+              if (uploadId === null) {
+                return new Response("Missing uploadId", { status: 400 });
+              }
+
+              const multipartUpload = bucket.resumeMultipartUpload(
+                key,
+                uploadId
+              );
+
+              interface CompleteBody {
+                parts: R2UploadedPart[];
+              }
+              const completeBody: CompleteBody = await c.req.json();
+              if (completeBody === null) {
+                return new Response("Missing or incomplete body", {
+                  status: 400,
+                });
+              }
+
+              try {
+                const object = await multipartUpload.complete(completeBody.parts);
+                
+                // Create or update the clip record in the database
+                const clipData:Clip = {
+                  turnId: parseInt(turnId),
+                  runId: parseInt(runId),
+                  clipR2: key,
+                };
+
+                const [clip] = await db.insert(schema.clips)
+                  .values(clipData)
+                  .returning();
+
+                return c.json({
+                  success: true,
+                  clip,
+                  videoUrl: clipData.clipR2,
+                  etag: object.httpEtag,
+                });
+              } catch (error: any) {
+                return new Response(error.message, { status: 400 });
+              }
+            }
+            default:
+              return new Response(`Unknown action ${action} for POST`, {
+                status: 400,
+              });
+          }
+        default:
+          return new Response("Method Not Allowed", {
+            status: 405,
+            headers: { Allow: "POST, PUT" },
+          });
+      }
+    }
+  )
+  // Upload part for multipart upload
+  .put(
+    "/:runId/clips/:turnId/upload",
+    zValidator("param", z.object({turnId:z.coerce.string(), runId: z.coerce.string() })),
+    async (c) => {
+      const { runId, turnId } = c.req.valid("param");
+      const bucket = c.env.VIDEOS;
+      
+      const url = new URL(c.req.url);
+      const key = `${runId}/${turnId}`;
+      const action = url.searchParams.get("action");
+
+      if (action !== "mpu-uploadpart") {
+        return new Response(`Unknown action ${action} for PUT`, {
+          status: 400,
+        });
+      }
+
+      const uploadId = url.searchParams.get("uploadId");
+      const partNumberString = url.searchParams.get("partNumber");
+      if (partNumberString === null || uploadId === null) {
+        return new Response("Missing partNumber or uploadId", {
+          status: 400,
+        });
+      }
+      
+      const body = await c.req.blob();
+      if (body === null) {
+        return new Response("Missing request body", { status: 400 });
+      }
+
+      const partNumber = parseInt(partNumberString);
+      const multipartUpload = bucket.resumeMultipartUpload(
+        key,
+        uploadId
+      );
+      
       try {
-        await VIDEOS.put(videoKey, video.stream());
-
-        const [newClip] = await db
-          .insert(schema.clips)
-          .values({
-            // @ts-ignore idk
-            runId,
-            turnId,
-            clipR2: videoKey,
-          })
-          .returning();
-
-        if (!newClip) {
-          return c.json({ error: "Failed to create clip entry in DB" }, 500);
-        }
-        return c.json(newClip, 201);
-      } catch (error) {
-        console.error("Error uploading video to R2 or updating DB:", error);
-        return c.json({ error: "Failed to upload video" }, 500);
+        const uploadedPart: R2UploadedPart =
+          await multipartUpload.uploadPart(partNumber, body);
+        return c.json(uploadedPart);
+      } catch (error: any) {
+        return new Response(error.message, { status: 400 });
       }
     }
   )

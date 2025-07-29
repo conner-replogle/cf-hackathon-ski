@@ -19,9 +19,9 @@ import Combobox from "@/components/ui/combo-box";
 // @ts-ignore
 import FilePondPluginMediaPreview from "filepond-plugin-media-preview";
 import "filepond-plugin-media-preview/dist/filepond-plugin-media-preview.min.css";
-import { useUploadVideoClip } from "@/services/api";
-import { useAthletes, useCreateRun, useRuns } from "@/services/api";
-import { Check, ChevronsUpDown, Plus } from "lucide-react";
+import { useAthletes, useCreateRun, useRuns, useRoute, useTurn, useRunClips, useTurns } from "@/services/api";
+import { Check, ChevronsUpDown, Plus, AlertTriangle, CheckCircle } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Command,
   CommandEmpty,
@@ -36,6 +36,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 registerPlugin(FilePondPluginMediaPreview);
 
@@ -52,10 +53,17 @@ const FormSchema = z.object({
 export default function SelectVideoPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { mutateAsync: uploadVideoClip } = useUploadVideoClip();
 
   const [showSuccessMsg, setShowSuccessMsg] = useState(false);
+  const turnId = parseInt(searchParams?.get("turn") || "");
+  const routeId = parseInt(searchParams?.get("route") || "");
   const { mutateAsync: createRun } = useCreateRun();
+  
+  // Fetch route and turn data for display
+  const { data: route } = useRoute(routeId);
+  const { data: turn } = useTurn(turnId);
+  const { data: routeTurns } = useTurns(routeId);
+  
   useEffect(() => {
     const params = ["event", "route", "turn"];
     for (const param of params) {
@@ -113,50 +121,208 @@ export default function SelectVideoPage() {
   const [comboboxOpen, setComboboxOpen] = useState(false);
 
   const selectedRunId = form.watch("run");
-  async function onSubmit(data: z.infer<typeof FormSchema>) {
-    console.log({
-      runId: selectedRunId,
-      turnId: parseInt(searchParams?.get("turn") || ""),
-      video: data.video,
-    });
-    await uploadVideoClip({
-      runId: selectedRunId,
-      turnId: parseInt(searchParams?.get("turn") || ""),
-      video: data.video,
-    });
-    setShowSuccessMsg(true);
-    form.reset();
-  }
+  const {data:clips} = useRunClips(selectedRunId);
+  
+  // Check if current turn already has a clip uploaded for this run
+  const currentTurnHasClip = clips?.some(clip => clip.turnId === turnId) || false;
+  
+  // Create a map of turn IDs that have clips uploaded
+  const turnsWithClips = new Set(clips?.map(clip => clip.turnId) || []);
+  const onSubmit = async (values: z.infer<typeof FormSchema>) => {
+      if (!values.video || !selectedRunId || !turnId) {
+        console.error('Missing required values for upload');
+        return;
+      }
+  
+      try {
+        const file = values.video;
+        const baseUrl = `/api/runs/${selectedRunId}/clips/${turnId}/upload`;
+        
+        // Step 1: Create multipart upload
+        const createResponse = await fetch(`${baseUrl}?action=mpu-create`, {
+          method: 'POST',
+        });
+        
+        if (!createResponse.ok) {
+          throw new Error('Failed to create multipart upload');
+        }
+        
+        const { uploadId } = await createResponse.json() as { key: string; uploadId: string };
+        
+        // Step 2: Upload file in chunks
+        const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
+        const totalParts = Math.ceil(file.size / CHUNK_SIZE);
+        const uploadedParts: Array<{ partNumber: number; etag: string }> = [];
+        
+        for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+          const start = (partNumber - 1) * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, file.size);
+          const chunk = file.slice(start, end);
+          
+          const partResponse = await fetch(
+            `${baseUrl}?action=mpu-uploadpart&uploadId=${uploadId}&partNumber=${partNumber}`,
+            {
+              method: 'PUT',
+              body: chunk,
+            }
+          );
+          
+          if (!partResponse.ok) {
+            throw new Error(`Failed to upload part ${partNumber}`);
+          }
+          
+          const partResult = await partResponse.json() as { etag: string };
+          uploadedParts.push({
+            partNumber,
+            etag: partResult.etag,
+          });
+        }
+        
+        // Step 3: Complete multipart upload
+        const completeResponse = await fetch(
+          `${baseUrl}?action=mpu-complete&uploadId=${uploadId}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              parts: uploadedParts,
+            }),
+          }
+        );
+        
+        if (!completeResponse.ok) {
+          throw new Error('Failed to complete multipart upload');
+        }
+        
+        const result = await completeResponse.json();
+        console.log('Upload completed:', result);
+        
+        setShowSuccessMsg(true);
+        setTimeout(() => {
+          navigate('/watch');
+        }, 2000);
+      } catch (error) {
+        console.error('Upload error:', error);
+      }
+    };
+  
 
   return (
     <Layout description="Finally upload a video and tag an athlete">
       <Form {...form}>
+        {/* Current Route and Turn Display */}
+        {(route || turn) && (
+          <Card className="mb-4">
+            <CardHeader>
+              <CardTitle className="text-lg">Current Selection</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {route && (
+                  <div>
+                    <h4 className="font-medium text-sm text-gray-600 mb-1">Route</h4>
+                    <p className="text-lg font-semibold">{route.routeName}</p>
+                  </div>
+                )}
+                {turn && (
+                  <div>
+                    <h4 className="font-medium text-sm text-gray-600 mb-1">Turn</h4>
+                    <p className="text-lg font-semibold">{turn.turnName}</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
+        {/* Duplicate Upload Warning */}
+        {currentTurnHasClip && selectedRunId && (
+          <Alert className="mb-4 border-amber-200 bg-amber-50">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800">
+              <strong>Warning:</strong> This turn already has a clip uploaded for the selected run. 
+              Uploading a new video will replace the existing clip.
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {/* Clips Status Display */}
+        {selectedRunId && routeTurns && routeTurns.length > 0 && (
+          <Card className="mb-4">
+            <CardHeader>
+              <CardTitle className="text-lg">Upload Status for This Run</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {routeTurns.map((routeTurn) => {
+                  const hasClip = turnsWithClips.has(routeTurn.id);
+                  const isCurrentTurn = routeTurn.id === turnId;
+                  
+                  return (
+                    <div
+                      key={routeTurn.id}
+                      className={cn(
+                        "flex items-center gap-2 p-3 rounded-lg border transition-colors",
+                        isCurrentTurn 
+                          ? "border-blue-200 bg-blue-50" 
+                          : hasClip 
+                          ? "border-green-200 bg-green-50" 
+                          : "border-gray-200 bg-gray-50"
+                      )}
+                    >
+                      {hasClip ? (
+                        <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      ) : (
+                        <div className="h-4 w-4 rounded-full border-2 border-gray-300 flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className={cn(
+                          "text-sm font-medium truncate",
+                          isCurrentTurn 
+                            ? "text-blue-900" 
+                            : hasClip 
+                            ? "text-green-900" 
+                            : "text-gray-900"
+                        )}>
+                          {routeTurn.turnName}
+                        </p>
+                        <p className={cn(
+                          "text-xs",
+                          isCurrentTurn 
+                            ? "text-blue-600" 
+                            : hasClip 
+                            ? "text-green-600" 
+                            : "text-gray-500"
+                        )}>
+                          {isCurrentTurn 
+                            ? "Current selection" 
+                            : hasClip 
+                            ? "Clip uploaded" 
+                            : "No clip"}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-4 flex items-center gap-4 text-xs text-gray-600">
+                <div className="flex items-center gap-1">
+                  <CheckCircle className="h-3 w-3 text-green-600" />
+                  <span>Uploaded ({turnsWithClips.size})</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="h-3 w-3 rounded-full border border-gray-400" />
+                  <span>Pending ({routeTurns.length - turnsWithClips.size})</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="video"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Video</FormLabel>
-                <FormControl>
-                  <FilePond
-                    files={field.value && [field.value]}
-                    onupdatefiles={(files) => {
-                      if (files) {
-                        form.setValue("video", files[0].file as File);
-                        form.clearErrors();
-                      }
-                    }}
-                    allowMultiple={false}
-                    name="files"
-                    labelIdle='Drag & Drop videos or <span class="filepond--label-action">Click Here</span>'
-                    credits={false}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          
           <FormField
             control={form.control}
             name="athlete"
@@ -246,20 +412,141 @@ export default function SelectVideoPage() {
               </FormItem>
             )}
           />
-          <Button type="submit" size="lg" className="w-full mt-8">
-            Upload
-          </Button>
-          <Button
-            type="button"
-            size="lg"
-            className="w-full"
-            variant="secondary"
-            onClick={() =>
-              navigate(`/upload/trailandturn?${searchParams.toString()}`)
-            }
-          >
-            Back
-          </Button>
+         <FormField
+            control={form.control}
+            name="video"
+          
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Video</FormLabel>
+                <FormControl>
+                  <FilePond
+                  allowRevert={false}
+                  allowRemove={false}
+                  
+                    disabled={selectedRunId === undefined }
+                    files={field.value && [field.value]}
+                    onupdatefiles={(files) => {
+                      if (files) {
+                        form.setValue("video", files[0].file as File);
+                        form.clearErrors();
+                      }
+                    }}
+                    server={
+                     {
+                       process: async (_fieldName, file, _metadata, load, error, progress, _abort) =>{
+                        
+                    
+                        try {
+                          const baseUrl = `/api/runs/${selectedRunId}/clips/${turnId}/upload`;
+                          
+                          // Step 1: Create multipart upload
+                          const createResponse = await fetch(`${baseUrl}?action=mpu-create`, {
+                            method: 'POST',
+                          });
+                          
+                          if (!createResponse.ok) {
+                            error('Failed to create multipart upload');
+                          }
+                          
+                          const { uploadId } = await createResponse.json() as { key: string; uploadId: string };
+                          
+                          // Step 2: Upload file in chunks
+                          const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB chunks
+                          const totalParts = Math.ceil(file.size / CHUNK_SIZE);
+                          const uploadedParts: Array<{ partNumber: number; etag: string }> = [];
+                          
+                          for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+                            const start = (partNumber - 1) * CHUNK_SIZE;
+                            const end = Math.min(start + CHUNK_SIZE, file.size);
+                            const chunk = file.slice(start, end);
+                            
+                            const partResponse = await fetch(
+                              `${baseUrl}?action=mpu-uploadpart&uploadId=${uploadId}&partNumber=${partNumber}`,
+                              {
+                                method: 'PUT',
+                                body: chunk,
+                              }
+                            );
+                            
+                            if (!partResponse.ok) {
+                              error(`Failed to upload part ${partNumber}`)
+
+                            }
+                            
+                            const partResult = await partResponse.json() as { etag: string };
+                            uploadedParts.push({
+                              partNumber,
+                              etag: partResult.etag,
+                            });
+                            progress(true,partNumber,totalParts)
+                          }
+                          
+                          // Step 3: Complete multipart upload
+                          const completeResponse = await fetch(
+                            `${baseUrl}?action=mpu-complete&uploadId=${uploadId}`,
+                            {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({
+                                parts: uploadedParts,
+                              }),
+                            }
+                          );
+                          
+                          if (!completeResponse.ok) {
+                            error("Failed to complete multipart upload")
+                          }
+                          
+                          const result = await completeResponse.json();
+                          console.log('Upload completed:', result);
+                          
+                          load(uploadId);
+                          setShowSuccessMsg(true);
+                          
+                        } catch (err) {
+                          error(String(err))
+                        }
+                       }
+                     }
+                    }
+                    allowMultiple={false}
+                    name="files"
+                    labelIdle='Drag & Drop videos or <span class="filepond--label-action">Click Here</span>'
+                    credits={false}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="lg"
+              className="flex-1"
+              variant="outline"
+              onClick={() => {
+                form.reset();
+                setShowSuccessMsg(false);
+              }}
+            >
+              Clear Form
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              className="flex-1"
+              variant="secondary"
+              onClick={() =>
+                navigate(`/upload/trailandturn?${searchParams.toString()}`)
+              }
+            >
+              Back
+            </Button>
+          </div>
         </form>
         {showSuccessMsg && (
           <div className="rounded-md ring ring-green-500 bg-green-500/10 text-green-700 p-2 text-center">

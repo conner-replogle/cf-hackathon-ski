@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { EventsManager } from './components/EventsManager';
 import { AthletesManager } from './components/AthletesManager';
-import { RoutesManager } from './components/RoutesManager';
 import { Button } from '@/components/ui/button';
 
-import { Users, MapPin, Trophy, Loader2 } from 'lucide-react';
-import { useEvents, useAthletes, useRoutes } from '@/services/api';
+import { Users, Trophy, Loader2 } from 'lucide-react';
+import { useEvents, useAthletes } from '@/services/api';
 
 // Main Admin Component
 export function Admin() {

@@ -45,15 +45,15 @@ export const Timeline = ({ videoSegments, currentTime, totalDuration, onTimeline
         />
         {videoSegments.map((segment, index) => (
           <div
-            key={String(segment.clip.turn_id) + String(segment.clip.run_id)}
+            key={String(segment.clip.turnId) + String(segment.clip.runId)}
             className={`absolute top-0 flex pl-4 justify-start items-center h-full border-r-2 border-background/50 transition-all duration-200 ${index === currentVideoIndex ? 'ring-2 ring-primary-foreground ring-offset-2 ring-offset-primary rounded-lg' : ''}`}
             style={{
               left: `${totalDuration > 0 ? (segment.startTime / totalDuration) * 100 : 0}%`,
               width: `${totalDuration > 0 ? (segment.duration / totalDuration) * 100 : 0}%`,
             }}
-            title={`${segment.clip.turn_id} (${formatTime(segment.duration)})`}
+            title={`${segment.clip.turnId} (${formatTime(segment.duration)})`}
           >
-            <p>{segment.clip.turn_id}</p>
+            <p>{segment.clip.turnId}</p>
           </div>
         ))}
       </div>

@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEventRuns } from "../../services/api";
-import type { Run, Athlete, Route } from "worker/types";
+import type { Athlete, Route } from "worker/types";
 
 
 export function Watch() {

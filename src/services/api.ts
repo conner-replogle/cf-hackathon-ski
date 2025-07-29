@@ -10,7 +10,6 @@ import type {
   Athlete,
   CreateRouteWithTurns,
   Event,
-  Route,
   Run,
 } from "worker/types";
 
@@ -132,41 +131,6 @@ export function useRunClips(runId?: number) {
   });
 }
 
-export function useUploadVideoClip() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      runId,
-      turnId,
-      video,
-    }: {
-      runId: number;
-      turnId: number;
-      video: File;
-    }) => {
-      const formData = new FormData();
-      formData.append("video", video);
-      formData.append("turnId", turnId.toString());
-      formData.append("runId", runId.toString());
-
-      // const res = await client.api.runs[":runId"].clips.upload.$post({
-      //   param: { runId: runId.toString() },
-      //   form: formData as any,
-      // });
-      //
-      const res = await fetch(`/api/runs/${runId}/clips/upload`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) throw new Error(await res.text());
-      return await res.json();
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["clips", variables.runId] });
-    },
-  });
-}
 // #endregion
 
 // #region Athletes
