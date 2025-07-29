@@ -112,7 +112,7 @@ export default function SelectVideoPage() {
   const [comboboxOpen, setComboboxOpen] = useState(false);
 
   const selectedRunId = form.watch("run");
-const onSubmit = async (values: z.infer<typeof FormSchema>) => {
+  const onSubmit = async (values: z.infer<typeof FormSchema>) => {
       if (!values.video || !selectedRunId || !turnId) {
         console.error('Missing required values for upload');
         return;
@@ -197,34 +197,7 @@ const onSubmit = async (values: z.infer<typeof FormSchema>) => {
     <Layout description="Finally upload a video and tag an athlete">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="video"
           
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Video</FormLabel>
-                <FormControl>
-                  <FilePond
-                  
-                    files={field.value && [field.value]}
-                    onupdatefiles={(files) => {
-                      if (files) {
-                        form.setValue("video", files[0].file as File);
-                        form.clearErrors();
-                      }
-                    }}
-                   
-                    allowMultiple={false}
-                    name="files"
-                    labelIdle='Drag & Drop videos or <span class="filepond--label-action">Click Here</span>'
-                    credits={false}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
           <FormField
             control={form.control}
             name="athlete"
@@ -314,20 +287,141 @@ const onSubmit = async (values: z.infer<typeof FormSchema>) => {
               </FormItem>
             )}
           />
-          <Button type="submit" size="lg" className="w-full mt-8">
-            Upload
-          </Button>
-          <Button
-            type="button"
-            size="lg"
-            className="w-full"
-            variant="secondary"
-            onClick={() =>
-              navigate(`/upload/trailandturn?${searchParams.toString()}`)
-            }
-          >
-            Back
-          </Button>
+         <FormField
+            control={form.control}
+            name="video"
+          
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Video</FormLabel>
+                <FormControl>
+                  <FilePond
+                  allowRevert={false}
+                  allowRemove={false}
+                  
+                    disabled={selectedRunId === undefined }
+                    files={field.value && [field.value]}
+                    onupdatefiles={(files) => {
+                      if (files) {
+                        form.setValue("video", files[0].file as File);
+                        form.clearErrors();
+                      }
+                    }}
+                    server={
+                     {
+                       process: async (fieldName, file, metadata, load, error, progress, abort) =>{
+                        
+                    
+                        try {
+                          const baseUrl = `/api/runs/${selectedRunId}/clips/${turnId}/upload`;
+                          
+                          // Step 1: Create multipart upload
+                          const createResponse = await fetch(`${baseUrl}?action=mpu-create`, {
+                            method: 'POST',
+                          });
+                          
+                          if (!createResponse.ok) {
+                            error('Failed to create multipart upload');
+                          }
+                          
+                          const { uploadId } = await createResponse.json() as { key: string; uploadId: string };
+                          
+                          // Step 2: Upload file in chunks
+                          const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
+                          const totalParts = Math.ceil(file.size / CHUNK_SIZE);
+                          const uploadedParts: Array<{ partNumber: number; etag: string }> = [];
+                          
+                          for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+                            const start = (partNumber - 1) * CHUNK_SIZE;
+                            const end = Math.min(start + CHUNK_SIZE, file.size);
+                            const chunk = file.slice(start, end);
+                            
+                            const partResponse = await fetch(
+                              `${baseUrl}?action=mpu-uploadpart&uploadId=${uploadId}&partNumber=${partNumber}`,
+                              {
+                                method: 'PUT',
+                                body: chunk,
+                              }
+                            );
+                            
+                            if (!partResponse.ok) {
+                              error(`Failed to upload part ${partNumber}`)
+
+                            }
+                            
+                            const partResult = await partResponse.json() as { etag: string };
+                            uploadedParts.push({
+                              partNumber,
+                              etag: partResult.etag,
+                            });
+                            progress(true,partNumber,totalParts)
+                          }
+                          
+                          // Step 3: Complete multipart upload
+                          const completeResponse = await fetch(
+                            `${baseUrl}?action=mpu-complete&uploadId=${uploadId}`,
+                            {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({
+                                parts: uploadedParts,
+                              }),
+                            }
+                          );
+                          
+                          if (!completeResponse.ok) {
+                            error("Failed to complete multipart upload")
+                          }
+                          
+                          const result = await completeResponse.json();
+                          console.log('Upload completed:', result);
+                          
+                          load(uploadId);
+                          setShowSuccessMsg(true);
+                          
+                        } catch (err) {
+                          error(String(err))
+                        }
+                       }
+                     }
+                    }
+                    allowMultiple={false}
+                    name="files"
+                    labelIdle='Drag & Drop videos or <span class="filepond--label-action">Click Here</span>'
+                    credits={false}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="lg"
+              className="flex-1"
+              variant="outline"
+              onClick={() => {
+                form.reset();
+                setShowSuccessMsg(false);
+              }}
+            >
+              Clear Form
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              className="flex-1"
+              variant="secondary"
+              onClick={() =>
+                navigate(`/upload/trailandturn?${searchParams.toString()}`)
+              }
+            >
+              Back
+            </Button>
+          </div>
         </form>
         {showSuccessMsg && (
           <div className="rounded-md ring ring-green-500 bg-green-500/10 text-green-700 p-2 text-center">
