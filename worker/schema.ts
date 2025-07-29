@@ -12,9 +12,9 @@ import { z } from "zod";
 export const events = sqliteTable("Events", {
   id: integer("id").primaryKey(),
   eventName: text("event_name").notNull().unique(),
-  eventLocation: text("event_location").notNull(),
-  eventDate: text("event_date").notNull(),
-  eventCoordinates: text("event_coordinates").notNull(),
+  eventLocation: text("event_location"),
+  eventDate: text("event_date"),
+  eventCoordinates: text("event_coordinates"),
 });
 
 // Athletes Table
