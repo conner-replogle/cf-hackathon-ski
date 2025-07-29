@@ -19,8 +19,6 @@
       "database_id": "407d6484-e684-4607-a4b2-aff17ff7a2d1",
       "migrations_dir": "drizzle/"
     }
-  ],
-  "vars": {
-    "GOOGLE_MAPS_API_KEY": ""
-  }
+  ]
+ 
 }
