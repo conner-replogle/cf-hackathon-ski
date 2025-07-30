@@ -13,7 +13,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FilePond, registerPlugin } from "react-filepond";
+import { FilePond } from "react-filepond";
 import "filepond/dist/filepond.min.css";
 import Combobox from "@/components/ui/combo-box";
 import {
@@ -294,7 +294,7 @@ export default function SelectVideoPage() {
                   }}
                   allowMultiple={false}
                   server={{
-                    process: (fieldName, file, metadata, load, error, progress, abort) => {
+                    process: (_fieldName, file, _metadata, load, error, progress, abort) => {
                       const upload = new tus.Upload(file, {
                         endpoint: `/api/runs/${selectedRunId}/clips/${turnId}/upload`,
                         retryDelays: [0, 3000, 5000, 10000, 20000],

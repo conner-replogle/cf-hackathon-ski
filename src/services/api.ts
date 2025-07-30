@@ -135,7 +135,7 @@ export function useClipStream(clipStreamId?: string) {
         param: { clipStreamId: clipStreamId },
       });
       if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
+      const data = await res.json() as { result: { playback: string } };
       return data.result.playback;
     },
     enabled: !!clipStreamId,

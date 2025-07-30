@@ -1,7 +1,9 @@
 import React from 'react';
+import type { Clip } from 'worker/types';
 
 interface VideoSegment {
-  clip: { turnName?: string };
+  clip: Clip;
+  streamUrl: string;
   duration: number;
   startTime: number;
   endTime: number;
@@ -39,7 +41,7 @@ export const Timeline: React.FC<TimelineProps> = ({ segments, currentTime, total
             }}
           >
             <span className="text-white text-xs font-semibold truncate px-2">
-              {segment.clip.turnName || `Clip ${index + 1}`}
+              {segment.clip.turnId || `Clip ${index + 1}`}
             </span>
           </div>
         ))}

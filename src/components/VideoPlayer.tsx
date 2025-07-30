@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Hls from 'hls.js';
 import type { Clip } from 'worker/types';
 import { Timeline } from './Timeline';
@@ -19,7 +19,7 @@ async function fetchStreamData(clip: Clip): Promise<{ streamUrl: string; duratio
   try {
     const response = await fetch(`/api/clips/${clip.clipStreamId}/stream`);
     if (!response.ok) return null;
-    const data = await response.json();
+    const data = await response.json() as { result: { playback: { hls: string }; duration: number } };
     const streamUrl = data.result.playback.hls;
     const duration = data.result.duration;
     return { streamUrl, duration };

@@ -4,7 +4,6 @@ import * as schema from "./schema";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { eq, inArray, count, and } from "drizzle-orm";
-import type { Clip } from "./types";
 
 type CfBindings = {
   DB: D1Database;
@@ -541,13 +540,12 @@ const app = new Hono<{ Bindings: CfBindings }>()
 
     if (!response.ok) {
       return c.json(
-        { error: "Failed to get stream URL" },
-        { status: response.status },
+        { error: "Failed to get stream URL" }
       );
     }
 
     const data = await response.json();
-    return c.json(data);
+    return c.json(data as any);
   })
   .post(
     "/api/runs/:runId/clips/:turnId/upload",
