@@ -16,9 +16,6 @@ import { Button } from "@/components/ui/button";
 import { FilePond, registerPlugin } from "react-filepond";
 import "filepond/dist/filepond.min.css";
 import Combobox from "@/components/ui/combo-box";
-// @ts-ignore
-import FilePondPluginMediaPreview from "filepond-plugin-media-preview";
-import "filepond-plugin-media-preview/dist/filepond-plugin-media-preview.min.css";
 import {
   useAthletes,
   useCreateRun,
@@ -43,8 +40,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-
-registerPlugin(FilePondPluginMediaPreview);
+import * as tus from "tus-js-client";
 
 const FormSchema = z.object({
   video: z.instanceof(File, { message: "Please upload a video" }),
@@ -69,7 +65,6 @@ export default function SelectVideoPage() {
   const { data: route } = useRoute(routeId);
   const { data: turn } = useTurn(turnId);
   const { data: routeTurns } = useTurns(routeId);
-  console.log(routeTurns);
 
   useEffect(() => {
     const params = ["event", "route", "turn"];
@@ -94,7 +89,7 @@ export default function SelectVideoPage() {
             value: athlete.id,
           }))
         : [],
-    [athletes]
+    [athletes],
   );
 
   const selectedAthleteId = form.watch("athlete");
@@ -109,7 +104,7 @@ export default function SelectVideoPage() {
             active: run.clips.find((a) => a.turnId == turnId) == null,
           }))
         : [],
-    [runs, turnId]
+    [runs, turnId],
   );
 
   const handleCreateRunClicked = async () => {
@@ -205,7 +200,7 @@ export default function SelectVideoPage() {
                         size="lg"
                         className={cn(
                           "w-full justify-between",
-                          !field.value && "text-muted-foreground"
+                          !field.value && "text-muted-foreground",
                         )}
                       >
                         {field.value
@@ -253,7 +248,7 @@ export default function SelectVideoPage() {
                                   "ml-auto",
                                   item.value === field.value
                                     ? "opacity-100"
-                                    : "opacity-0"
+                                    : "opacity-0",
                                 )}
                               />
                             </CommandItem>
@@ -292,127 +287,63 @@ export default function SelectVideoPage() {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Video</FormLabel>
-                <FormControl>
-                  <FilePond
-                    allowRevert={false}
-                    allowRemove={false}
-                    disabled={selectedRunId === undefined}
-                    files={field.value && [field.value]}
-                    onupdatefiles={(files) => {
-                      if (files) {
-                        form.setValue("video", files[0].file as File);
-                        form.clearErrors();
-                      }
-                    }}
-                    server={{
-                      process: async (
-                        _fieldName,
-                        file,
-                        _metadata,
-                        load,
-                        error,
-                        progress,
-                        _abort
-                      ) => {
-                        try {
-                          const baseUrl = `/api/runs/${selectedRunId}/clips/${turnId}/upload`;
+                <FilePond
+                  files={field.value ? [field.value] : []}
+                  onupdatefiles={(fileItems) => {
+                    form.setValue("video", fileItems[0]?.file as File);
+                  }}
+                  allowMultiple={false}
+                  server={{
+                    process: (fieldName, file, metadata, load, error, progress, abort) => {
+                      const upload = new tus.Upload(file, {
+                        endpoint: `/api/runs/${selectedRunId}/clips/${turnId}/upload`,
+                        retryDelays: [0, 3000, 5000, 10000, 20000],
+                        metadata: {
+                          filename: file.name,
+                          filetype: file.type,
+                        },
+                        onError: (err) => {
+                          console.error("Failed because: " + err);
+                          error("Upload failed");
+                        },
+                        onProgress: (bytesUploaded, bytesTotal) => {
+                          progress(true, bytesUploaded, bytesTotal);
+                        },
+                        onSuccess: () => {
+                            console.log("Download %s from %s", (upload.file as File).name, upload.url);
+                            load(upload.url as any);
+                            setShowSuccessMsg(true);
+                            form.reset();
+                          },
+                      });
 
-                          // Step 1: Create multipart upload
-                          const createResponse = await fetch(
-                            `${baseUrl}?action=mpu-create`,
-                            {
-                              method: "POST",
-                            }
-                          );
+                      upload.start();
 
-                          if (!createResponse.ok) {
-                            error("Failed to create multipart upload");
-                          }
-
-                          const { uploadId } =
-                            (await createResponse.json()) as {
-                              key: string;
-                              uploadId: string;
-                            };
-
-                          // Step 2: Upload file in chunks
-                          const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB chunks
-                          const totalParts = Math.ceil(file.size / CHUNK_SIZE);
-                          const uploadedParts: Array<{
-                            partNumber: number;
-                            etag: string;
-                          }> = [];
-
-                          for (
-                            let partNumber = 1;
-                            partNumber <= totalParts;
-                            partNumber++
-                          ) {
-                            const start = (partNumber - 1) * CHUNK_SIZE;
-                            const end = Math.min(start + CHUNK_SIZE, file.size);
-                            const chunk = file.slice(start, end);
-
-                            const partResponse = await fetch(
-                              `${baseUrl}?action=mpu-uploadpart&uploadId=${uploadId}&partNumber=${partNumber}`,
-                              {
-                                method: "PUT",
-                                body: chunk,
-                              }
-                            );
-
-                            if (!partResponse.ok) {
-                              error(`Failed to upload part ${partNumber}`);
-                            }
-
-                            const partResult = (await partResponse.json()) as {
-                              etag: string;
-                            };
-                            uploadedParts.push({
-                              partNumber,
-                              etag: partResult.etag,
-                            });
-                            progress(true, partNumber, totalParts);
-                          }
-
-                          // Step 3: Complete multipart upload
-                          const completeResponse = await fetch(
-                            `${baseUrl}?action=mpu-complete&uploadId=${uploadId}`,
-                            {
-                              method: "POST",
-                              headers: {
-                                "Content-Type": "application/json",
-                              },
-                              body: JSON.stringify({
-                                parts: uploadedParts,
-                              }),
-                            }
-                          );
-
-                          if (!completeResponse.ok) {
-                            error("Failed to complete multipart upload");
-                          }
-
-                          const result = await completeResponse.json();
-                          console.log("Upload completed:", result);
-
-                          load(uploadId);
-                          setShowSuccessMsg(true);
-                        } catch (err) {
-                          error(String(err));
-                        }
-                      },
-                    }}
-                    allowMultiple={false}
-                    name="files"
-                    labelIdle='Drag & Drop videos or <span class="filepond--label-action">Click Here</span>'
-                    credits={false}
-                  />
-                </FormControl>
+                      return {
+                        abort: () => {
+                          upload.abort();
+                          abort();
+                        },
+                      };
+                    },
+                  }}
+                  name="video"
+                  labelIdle='Drag & Drop your video or <span class="filepond--label-action">Browse</span>'
+                />
                 <FormMessage />
               </FormItem>
             )}
           />
           <div className="flex gap-2">
+            <Button
+              type="button"
+              size="lg"
+              className="flex-1"
+              variant="outline"
+              onClick={() => window.history.back()}
+            >
+              Back
+            </Button>
             <Button
               type="button"
               size="lg"
@@ -425,17 +356,7 @@ export default function SelectVideoPage() {
             >
               Clear Form
             </Button>
-            <Button
-              type="button"
-              size="lg"
-              className="flex-1"
-              variant="secondary"
-              onClick={() =>
-                navigate(`/upload/trailandturn?${searchParams.toString()}`)
-              }
-            >
-              Back
-            </Button>
+            
           </div>
         </form>
         {showSuccessMsg && (
