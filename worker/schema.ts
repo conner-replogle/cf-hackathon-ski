@@ -65,6 +65,7 @@ export const clips = sqliteTable(
       .notNull()
       .references(() => runs.id, { onDelete: "cascade" }),
     clipR2: text("clip_r2"),
+    clipStreamId: text("clip_stream_id"),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.turnId, table.runId] }),
