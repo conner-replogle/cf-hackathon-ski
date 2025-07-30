@@ -126,6 +126,22 @@ export function useRunClips(runId?: number) {
   });
 }
 
+export function useClipStream(clipStreamId?: string) {
+  return useQuery({
+    queryKey: ["useClipStream", clipStreamId],
+    queryFn: async () => {
+      if (!clipStreamId) return null;
+      const res = await client.api.clips[':clipStreamId'].stream.$get({
+        param: { clipStreamId: clipStreamId },
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      return data.result.playback;
+    },
+    enabled: !!clipStreamId,
+  });
+}
+
 // #endregion
 
 // #region Athletes

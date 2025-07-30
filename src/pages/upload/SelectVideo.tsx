@@ -13,7 +13,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import * as tus from "tus-js-client";
+import { FilePond, registerPlugin } from "react-filepond";
+import "filepond/dist/filepond.min.css";
 import Combobox from "@/components/ui/combo-box";
 import {
   useAthletes,
@@ -39,7 +40,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
+import * as tus from "tus-js-client";
 
 const FormSchema = z.object({
   video: z.instanceof(File, { message: "Please upload a video" }),
@@ -286,19 +287,48 @@ export default function SelectVideoPage() {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Video</FormLabel>
-                <FormControl>
-                  <Input
-                    type="file"
-                    disabled={selectedRunId === undefined}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        form.setValue("video", file);
-                        form.clearErrors();
-                      }
-                    }}
-                  />
-                </FormControl>
+                <FilePond
+                  files={field.value ? [field.value] : []}
+                  onupdatefiles={(fileItems) => {
+                    form.setValue("video", fileItems[0]?.file as File);
+                  }}
+                  allowMultiple={false}
+                  server={{
+                    process: (fieldName, file, metadata, load, error, progress, abort) => {
+                      const upload = new tus.Upload(file, {
+                        endpoint: `/api/runs/${selectedRunId}/clips/${turnId}/upload`,
+                        retryDelays: [0, 3000, 5000, 10000, 20000],
+                        metadata: {
+                          filename: file.name,
+                          filetype: file.type,
+                        },
+                        onError: (err) => {
+                          console.error("Failed because: " + err);
+                          error("Upload failed");
+                        },
+                        onProgress: (bytesUploaded, bytesTotal) => {
+                          progress(true, bytesUploaded, bytesTotal);
+                        },
+                        onSuccess: () => {
+                          console.log("Download %s from %s", (upload.file as File).name, upload.url);
+                          load(upload.url as any);
+                          setShowSuccessMsg(true);
+                        },
+                      });
+
+                      upload.start();
+
+                      return {
+                        abort: () => {
+                          upload.abort();
+                          abort();
+                        },
+                      };
+                    },
+                  }}
+                  name="video"
+                  labelIdle='Drag & Drop your video or <span class="filepond--label-action">Browse</span>'
+                />
                 <FormMessage />
               </FormItem>
             )}
@@ -316,33 +346,7 @@ export default function SelectVideoPage() {
             >
               Clear Form
             </Button>
-            <Button
-              type="button"
-              size="lg"
-              className="flex-1"
-              onClick={() => {
-                const video = form.getValues("video");
-                if (video) {
-                  const upload = new tus.Upload(video, {
-                    endpoint: `/api/runs/${selectedRunId}/clips/${turnId}/upload`,
-                    retryDelays: [0, 3000, 5000, 10000, 20000],
-                    metadata: {
-                      filename: video.name,
-                      filetype: video.type,
-                    },
-                    onError: (error) => {
-                      console.error("Failed because: " + error);
-                    },
-                    onSuccess: () => {
-                      setShowSuccessMsg(true);
-                    },
-                  });
-                  upload.start();
-                }
-              }}
-            >
-              Upload
-            </Button>
+            
           </div>
         </form>
         {showSuccessMsg && (

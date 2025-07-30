@@ -1,65 +1,52 @@
-// src/components/Timeline.tsx
-
-import type { Clip } from "worker/types";
+import React from 'react';
 
 interface VideoSegment {
-  clip: Clip;
+  clip: { turnName?: string };
+  duration: number;
   startTime: number;
   endTime: number;
-  duration: number;
 }
 
 interface TimelineProps {
-  videoSegments: VideoSegment[];
+  segments: VideoSegment[];
   currentTime: number;
   totalDuration: number;
-  currentVideoIndex: number;
-  onTimelineSeek: (time: number) => void;
+  onSeek: (time: number) => void;
 }
 
-const formatTime = (seconds: number) => {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.floor(seconds % 60);
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-};
-
-export const Timeline = ({ videoSegments, currentTime, totalDuration, onTimelineSeek, currentVideoIndex }: TimelineProps) => {
-  const handleTimelineClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    const timeline = event.currentTarget;
-    const rect = timeline.getBoundingClientRect();
-    const clickX = event.clientX - rect.left;
-    const percentage = clickX / rect.width;
-    const targetTime = percentage * totalDuration;
-    onTimelineSeek(targetTime);
+export const Timeline: React.FC<TimelineProps> = ({ segments, currentTime, totalDuration, onSeek }) => {
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    const timelineRect = e.currentTarget.getBoundingClientRect();
+    const clickPosition = e.clientX - timelineRect.left;
+    const seekTime = (clickPosition / timelineRect.width) * totalDuration;
+    onSeek(seekTime);
   };
 
+  if (totalDuration === 0) {
+    return null; // Don't render timeline until we have durations
+  }
+
   return (
-    <div className="space-y-2">
-      <div
-        className="w-full h-8 bg-muted rounded-lg cursor-pointer relative overflow-hidden"
-        onClick={handleTimelineClick}
-      >
-        <div
-          className="absolute top-0 left-0 h-full bg-primary transition-all duration-75 ease-linear"
-          style={{ width: `${totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0}%` }}
-        />
-        {videoSegments.map((segment, index) => (
+    <div className="w-full bg-gray-200 rounded-lg p-2 cursor-pointer my-4" onClick={handleSeek}>
+      <div className="relative w-full h-12 bg-gray-700 rounded">
+        {segments.map((segment, index) => (
           <div
-            key={String(segment.clip.turnId) + String(segment.clip.runId)}
-            className={`absolute top-0 flex pl-4 justify-start items-center h-full border-r-2 border-background/50 transition-all duration-200 ${index === currentVideoIndex ? 'ring-2 ring-primary-foreground ring-offset-2 ring-offset-primary rounded-lg' : ''}`}
+            key={index}
+            className="absolute h-full bg-orange-500 opacity-75 rounded border-r-2 border-gray-900 flex items-center justify-center"
             style={{
-              left: `${totalDuration > 0 ? (segment.startTime / totalDuration) * 100 : 0}%`,
-              width: `${totalDuration > 0 ? (segment.duration / totalDuration) * 100 : 0}%`,
+              left: `${(segment.startTime / totalDuration) * 100}%`,
+              width: `${(segment.duration / totalDuration) * 100}%`,
             }}
-            title={`${segment.clip.turnId} (${formatTime(segment.duration)})`}
           >
-            <p>{segment.clip.turnId}</p>
+            <span className="text-white text-xs font-semibold truncate px-2">
+              {segment.clip.turnName || `Clip ${index + 1}`}
+            </span>
           </div>
         ))}
-      </div>
-      <div className="flex justify-between text-sm text-muted-foreground">
-        <span>{formatTime(currentTime)}</span>
-        <span>{formatTime(totalDuration)}</span>
+        <div
+          className="absolute top-0 h-full w-1 bg-red-600 rounded"
+          style={{ left: `calc(${(currentTime / totalDuration) * 100}% - 2px)` }}
+        />
       </div>
     </div>
   );

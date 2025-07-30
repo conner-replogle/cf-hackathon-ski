@@ -382,10 +382,18 @@ const runsApp = new Hono<{ Bindings: CfBindings }>()
       const { runId } = c.req.valid("param");
 
       const clips = await db
-        .select()
+        .select({
+          turnId: schema.clips.turnId,
+          runId: schema.clips.runId,
+          clipR2: schema.clips.clipR2,
+          clipStreamId: schema.clips.clipStreamId,
+          turnName: schema.turns.turnName,
+        })
         .from(schema.clips)
+        .leftJoin(schema.turns, eq(schema.clips.turnId, schema.turns.id))
         .where(eq(schema.clips.runId, runId))
         .all();
+
       return c.json(clips);
     },
   );
@@ -520,6 +528,27 @@ const app = new Hono<{ Bindings: CfBindings }>()
       return c.json(transformedResults);
     },
   )
+  .get("/api/clips/:clipStreamId/stream", async (c) => {
+    const { clipStreamId } = c.req.param();
+    const response = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${c.env.CLOUDFLARE_ACCOUNT_ID}/stream/${clipStreamId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${c.env.CLOUDFLARE_STREAM_TOKEN}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      return c.json(
+        { error: "Failed to get stream URL" },
+        { status: response.status },
+      );
+    }
+
+    const data = await response.json();
+    return c.json(data);
+  })
   .post(
     "/api/runs/:runId/clips/:turnId/upload",
     zValidator(
