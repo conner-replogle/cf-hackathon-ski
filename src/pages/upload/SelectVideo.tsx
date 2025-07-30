@@ -310,10 +310,11 @@ export default function SelectVideoPage() {
                           progress(true, bytesUploaded, bytesTotal);
                         },
                         onSuccess: () => {
-                          console.log("Download %s from %s", (upload.file as File).name, upload.url);
-                          load(upload.url as any);
-                          setShowSuccessMsg(true);
-                        },
+                            console.log("Download %s from %s", (upload.file as File).name, upload.url);
+                            load(upload.url as any);
+                            setShowSuccessMsg(true);
+                            form.reset();
+                          },
                       });
 
                       upload.start();
@@ -334,6 +335,15 @@ export default function SelectVideoPage() {
             )}
           />
           <div className="flex gap-2">
+            <Button
+              type="button"
+              size="lg"
+              className="flex-1"
+              variant="outline"
+              onClick={() => window.history.back()}
+            >
+              Back
+            </Button>
             <Button
               type="button"
               size="lg"
