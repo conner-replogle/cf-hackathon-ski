@@ -53,7 +53,7 @@ export function Watch() {
                 : true;
 
             return athleteMatch && routeMatch && searchMatch;
-        });
+        }).sort((a, b) => b.run.id - a.run.id);
     }, [eventRuns, selectedAthlete, selectedRoute, searchTerm]);
 
     if (!eventId) {

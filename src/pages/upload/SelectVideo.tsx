@@ -311,7 +311,7 @@ export default function SelectVideoPage() {
                         },
                         onSuccess: () => {
                             console.log("Download %s from %s", (upload.file as File).name, upload.url);
-                            load(upload.url as any);
+                            load(upload.url as string);
                             setShowSuccessMsg(true);
                             form.reset();
                           },
